@@ -45,9 +45,11 @@ func testDB(t *testing.T) *postgres.DB {
 	if err != nil {
 		t.Skipf("skip: database unavailable: %v", err)
 	}
-	// Drop goose version table and legacy tables so migrations re-run from scratch
-	preDB.Exec("DROP TABLE IF EXISTS goose_db_version, schema_version, plugin_installs, plugin_versions, plugins CASCADE")
-	preDB.Close()
+	// Reset the whole schema so migrations run from scratch. Dropping only the
+	// goose version table made non-idempotent migrations (e.g. 0020) fail on
+	// every test after the first, silently skipping the suite.
+	if _, err := preDB.Exec("DROP SCHEMA IF EXISTS public CASCADE; CREATE SCHEMA public"); err != nil {
+		preDB.Close()
 
 	db, err := postgres.Open(dsn)
 	if err != nil {
@@ -340,7 +342,7 @@ func TestRegisterAndLogin(t *testing.T) {
 	defer env.close()
 
 	// First user → admin
-	env.register("admin", "password123")
+	env.register("admin1", "password123")
 	code, me := env.get("/api/me")
 	assertCode(t, "GET /me", code, 200)
 	if me["role"] != "superadmin" {
@@ -353,13 +355,13 @@ func TestRegisterAndLogin(t *testing.T) {
 	assertCode(t, "after logout", code, 401)
 
 	// Login
-	env.login("admin", "password123")
+	env.login("admin1", "password123")
 	code, _ = env.get("/api/me")
 	assertCode(t, "after login", code, 200)
 
 	// Wrong password
 	env.post("/api/auth/logout", nil)
-	code, _ = env.postCode("/api/auth/login", map[string]string{"username": "admin", "password": "wrong"})
+	code, _ = env.postCode("/api/auth/login", map[string]string{"username": "admin1", "password": "wrong"})
 	assertCode(t, "wrong password", code, 401)
 
 	// Second user → member
