@@ -152,6 +152,10 @@ func (s *Server) handleBotAPISend(w http.ResponseWriter, r *http.Request) {
 	}
 
 	clientID, err := botInst.Send(r.Context(), outMsg)
+	if qe, ok := provider.AsQueued(err); ok {
+		writeQueued(w, qe, map[string]any{"trace_id": traceID})
+		return
+	}
 	if err != nil {
 		slog.Error("bot api: send failed", "bot_id", inst.BotID, "err", err)
 		code, m := sendErrorResponse(err)

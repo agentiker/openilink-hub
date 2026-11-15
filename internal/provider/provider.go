@@ -51,6 +51,40 @@ func (e *SendError) Error() string {
 
 func (e *SendError) Unwrap() error { return e.Err }
 
+// QueuedError is returned by Send when the message was not delivered now but
+// stored for automatic delivery once the recipient messages the bot again
+// (the per-inbound send allowance is used up). Callers should treat it as
+// accepted, not failed.
+type QueuedError struct {
+	ID      int64 // outbox item ID
+	Pending int   // messages waiting for this recipient, including this one
+}
+
+func (e *QueuedError) Error() string {
+	return fmt.Sprintf("queued for delivery after the recipient replies (pending=%d)", e.Pending)
+}
+
+// AsQueued reports whether err is a *QueuedError.
+func AsQueued(err error) (*QueuedError, bool) {
+	var qe *QueuedError
+	if errors.As(err, &qe) {
+		return qe, true
+	}
+	return nil, false
+}
+
+// SendQuotaer is implemented by providers whose upstream limits how many
+// messages may be sent per inbound user message. Zero means unlimited.
+type SendQuotaer interface {
+	SendQuota() int
+}
+
+// DefaultRecipienter is implemented by providers that resolve an empty
+// OutboundMessage.Recipient to a default user.
+type DefaultRecipienter interface {
+	DefaultRecipient() string
+}
+
 // SendErrorKindOf returns the kind of a *SendError in err's chain, or
 // SendErrUnknown with ok=false if there is none.
 func SendErrorKindOf(err error) (kind SendErrorKind, ok bool) {

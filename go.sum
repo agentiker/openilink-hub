@@ -1,7 +1,7 @@
 github.com/Masterminds/semver/v3 v3.2.1 h1:RN9w6+7QoMeJVGyfmbcgs28Br8cvmnucEXnY0rYXWg0=
 github.com/Masterminds/semver/v3 v3.2.1/go.mod h1:qvl/7zhW3nngYb5+80sSMF+FG2BjYrf8m9wsX0PNOMQ=
-github.com/agentiker/wxilink-sdk-go v0.7.0 h1:XK3Yb/t/fXoseRUOhhFBA5C97OqUP/Piagfnx/nUPkM=
-github.com/agentiker/wxilink-sdk-go v0.7.0/go.mod h1:m1Z3kgCPgVIRjgNN74zOHlpK0S2Uyb+VBPjKWhOX0gg=
+github.com/agentiker/wxilink-sdk-go v0.8.0 h1:NdDqgkIxlv8Yg8NRBS9MmFaKvPRnUYtBG0wx3yXTVVM=
+github.com/agentiker/wxilink-sdk-go v0.8.0/go.mod h1:m1Z3kgCPgVIRjgNN74zOHlpK0S2Uyb+VBPjKWhOX0gg=
 github.com/coreos/go-oidc/v3 v3.17.0 h1:hWBGaQfbi0iVviX4ibC7bk8OKT5qNr4klBaCHVNvehc=
 github.com/coreos/go-oidc/v3 v3.17.0/go.mod h1:wqPbKFrVnE90vty060SB40FCJ8fTHTxSwyXJqZH+sI8=
 github.com/davecgh/go-spew v1.1.0/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=

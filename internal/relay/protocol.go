@@ -66,6 +66,10 @@ type SendAckData struct {
 	Success  bool   `json:"success"`
 	ClientID string `json:"client_id,omitempty"`
 	Error    string `json:"error,omitempty"`
+	// Queued is set when the message was accepted but will be delivered
+	// only after the recipient messages the bot (send allowance used up).
+	Queued  bool `json:"queued,omitempty"`
+	Pending int  `json:"pending,omitempty"`
 }
 
 type ErrorData struct {
@@ -90,6 +94,11 @@ type SendTypingData struct {
 func NewEnvelope(typ string, data any) Envelope {
 	raw, _ := json.Marshal(data)
 	return Envelope{Type: typ, Data: raw}
+}
+
+// NewQueuedAck acknowledges a message that was queued for later delivery.
+func NewQueuedAck(reqID string, pending int) Envelope {
+	return NewEnvelope("send_ack", SendAckData{ReqID: reqID, Success: true, Queued: true, Pending: pending})
 }
 
 func NewAck(reqID string, success bool, clientID, errMsg string) Envelope {

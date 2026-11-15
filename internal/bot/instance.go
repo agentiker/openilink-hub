@@ -22,6 +22,12 @@ func NewInstance(dbID string, p provider.Provider) *Instance {
 
 func (i *Instance) Status() string { return i.Provider.Status() }
 
+// Quota returns the send-allowance layer if the provider has one.
+func (i *Instance) Quota() *QuotaProvider {
+	q, _ := i.Provider.(*QuotaProvider)
+	return q
+}
+
 func (i *Instance) Send(ctx context.Context, msg provider.OutboundMessage) (string, error) {
 	return i.Provider.Send(ctx, msg)
 }

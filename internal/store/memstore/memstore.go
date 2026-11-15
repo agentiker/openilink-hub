@@ -32,6 +32,9 @@ type Store struct {
 	eventLogs []store.AppEventLog
 	logSeq    atomic.Int64
 	apiLogs   []store.AppAPILog
+
+	quotaOnce sync.Once
+	quota     *quotaState
 }
 
 // Compile-time check that Store implements store.Store.

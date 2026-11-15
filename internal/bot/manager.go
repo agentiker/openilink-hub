@@ -126,6 +126,14 @@ func (m *Manager) StartBot(ctx context.Context, bot *store.Bot) error {
 		return err
 	}
 
+	// Providers with a per-inbound send allowance (iLink: 10) get the quota
+	// layer: nudge on the last message, queue the rest until the user replies.
+	if sq, ok := p.(provider.SendQuotaer); ok && sq.SendQuota() > 0 {
+		botID := bot.ID
+		inst.Provider = NewQuotaProvider(p, m.store, botID, sq.SendQuota(),
+			func(recipient string, msg provider.OutboundMessage) { m.recordFlushed(botID, recipient, msg) })
+	}
+
 	m.instances[bot.ID] = inst
 	slog.Info("bot started", "bot", bot.ID, "provider", bot.Provider)
 
@@ -180,7 +188,36 @@ func (m *Manager) reminderLoop(ctx context.Context) {
 			return
 		case <-ticker.C:
 			m.checkReminders()
+			m.pruneOutbox()
 		}
+	}
+}
+
+// recordFlushed stores an outbound message delivered from the outbox, so it
+// shows up in the conversation like any other sent message.
+func (m *Manager) recordFlushed(botID, recipient string, msg provider.OutboundMessage) {
+	item := map[string]any{"type": "text", "text": msg.Text}
+	if isMedia(msg) {
+		item = map[string]any{"type": mediaItemType(msg.FileName), "file_name": msg.FileName}
+		if msg.Text != "" {
+			item["text"] = msg.Text
+		}
+	}
+	itemList, _ := json.Marshal([]any{item})
+	if _, err := m.store.SaveMessage(&store.Message{
+		BotID: botID, Direction: "outbound", ToUserID: recipient, MessageType: 2, ItemList: itemList,
+	}); err != nil {
+		slog.Error("record flushed message failed", "bot", botID, "err", err)
+	}
+}
+
+// pruneOutbox drops queued messages older than outboxTTL.
+func (m *Manager) pruneOutbox() {
+	n, err := m.store.PruneOutbox(time.Now().Add(-outboxTTL).Unix())
+	if err != nil {
+		slog.Error("prune outbox failed", "err", err)
+	} else if n > 0 {
+		slog.Info("pruned expired outbox items", "count", n)
 	}
 }
 
@@ -205,6 +242,14 @@ func (m *Manager) checkReminders() {
 			Text:         text,
 			ContextToken: token,
 		})
+		if qe, ok := provider.AsQueued(err); ok {
+			// Send allowance already used up: a queued reminder would only
+			// arrive after the user writes, which makes it pointless.
+			m.store.DeleteOutbox([]int64{qe.ID})
+			slog.Info("reminder skipped: send allowance used up", "bot", bot.ID)
+			m.store.MarkBotReminded(bot.ID)
+			continue
+		}
 		if err != nil {
 			slog.Error("reminder send failed", "bot", bot.ID, "err", err)
 			continue
@@ -315,6 +360,18 @@ func (m *Manager) onInbound(inst *Instance, msg provider.InboundMessage) {
 		return
 	}
 	msgID := result.ID
+
+	// A new inbound message restores the sender's send allowance; deliver
+	// anything queued while it was used up.
+	if q := inst.Quota(); q != nil {
+		for _, who := range []string{msg.Sender, msg.GroupID} {
+			if who == "" {
+				continue
+			}
+			q.OnInbound(who)
+			go q.Flush(context.Background(), who)
+		}
+	}
 
 	// Create OTel-style tracer for this message
 	tracer := store.NewTracer(m.store, inst.DBID)

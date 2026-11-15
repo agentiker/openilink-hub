@@ -53,6 +53,9 @@ type Credentials struct {
 	BotToken    string `json:"bot_token"`
 	BaseURL     string `json:"base_url,omitempty"`
 	ILinkUserID string `json:"ilink_user_id,omitempty"`
+	// SendQuota, if > 0, makes the mock provider report a per-inbound send
+	// allowance (like iLink's 10) so the Hub quota layer is exercised.
+	SendQuota int `json:"send_quota,omitempty"`
 }
 
 // GetUpdatesResult is returned by Engine.GetUpdates.

@@ -21,7 +21,15 @@ type Provider struct {
 	engine *Engine
 	cancel context.CancelFunc
 	opts   provider.StartOptions
+	creds  Credentials
 }
+
+// SendQuota implements provider.SendQuotaer (0 = unlimited unless the bot's
+// credentials set send_quota).
+func (p *Provider) SendQuota() int { return p.creds.SendQuota }
+
+// DefaultRecipient implements provider.DefaultRecipienter.
+func (p *Provider) DefaultRecipient() string { return p.creds.ILinkUserID }
 
 // Compile-time interface checks.
 var (
@@ -57,6 +65,7 @@ func (p *Provider) Start(ctx context.Context, opts provider.StartOptions) error 
 	if creds.BotToken == "" {
 		creds.BotToken = "mock-token"
 	}
+	p.creds = creds
 	p.engine.SetToken(creds.BotToken)
 	p.engine.SetStatus("connected")
 	if opts.OnStatus != nil {

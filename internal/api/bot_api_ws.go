@@ -142,6 +142,14 @@ func (s *Server) HandleAppWSSend(conn *app.WSConn, msg map[string]any) {
 	}
 
 	clientID, err := botInst.Send(context.Background(), outMsg)
+	if qe, ok := provider.AsQueued(err); ok {
+		resp := map[string]any{"type": "ack", "ok": true, "queued": true, "pending": qe.Pending}
+		if reqID != "" {
+			resp["req_id"] = reqID
+		}
+		conn.SendJSON(resp)
+		return
+	}
 	if err != nil {
 		slog.Error("app ws send failed", "bot_id", conn.BotID, "err", err)
 		_, m := sendErrorResponse(err)

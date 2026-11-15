@@ -114,6 +114,10 @@ func (s *Server) SetupUpstreamHandler() relay.UpstreamHandler {
 				Text:         data.Text,
 				ContextToken: ctxToken,
 			})
+			if qe, ok := provider.AsQueued(err); ok {
+				conn.Send(relay.NewQueuedAck(env.ReqID, qe.Pending))
+				return
+			}
 			if err != nil {
 				_, m := sendErrorResponse(err)
 				conn.Send(relay.NewAck(env.ReqID, false, "", m))

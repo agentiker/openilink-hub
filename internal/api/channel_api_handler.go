@@ -9,6 +9,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/openilink/openilink-hub/internal/provider"
 	"github.com/openilink/openilink-hub/internal/store"
 )
 
@@ -138,6 +139,10 @@ func (s *Server) handleChannelSend(w http.ResponseWriter, r *http.Request) {
 	}
 
 	clientID, err := inst.Send(context.Background(), msg)
+	if qe, ok := provider.AsQueued(err); ok {
+		writeQueued(w, qe, nil)
+		return
+	}
 	if err != nil {
 		code, m := sendErrorResponse(err)
 		jsonError(w, m, code)

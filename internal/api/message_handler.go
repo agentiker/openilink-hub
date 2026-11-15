@@ -85,16 +85,24 @@ func (s *Server) handleListMessages(w http.ResponseWriter, r *http.Request) {
 
 	// Include send capability so the chat panel can update without extra requests
 	status := bot.Status
-	if inst, ok := s.BotManager.GetInstance(botID); ok {
+	inst, running := s.BotManager.GetInstance(botID)
+	if running {
 		status = inst.Status()
 	}
-	canSend, sendReason := s.checkSendability(botID, status)
+	canSend, sendReason := checkBotSendable(status)
 
 	resp := map[string]any{
 		"messages":    msgs,
 		"next_cursor": nextCursor,
 		"has_more":    hasMore,
 		"can_send":    canSend,
+	}
+	if running {
+		if q := inst.Quota(); q != nil {
+			if st, err := q.QuotaStatus(""); err == nil {
+				resp["quota"] = st
+			}
+		}
 	}
 	if sendReason != "" {
 		resp["send_disabled_reason"] = sendReason

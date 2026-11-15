@@ -3158,3 +3158,106 @@ func TestSendUpstreamErrorMapping(t *testing.T) {
 		t.Errorf("outbound messages stored for refused sends: before=%d after=%d", before, got)
 	}
 }
+
+// ==================== Send allowance (quota) end to end ====================
+
+// TestSendQuotaQueueAndFlush drives the quota layer through the HTTP API
+// with a mock provider that reports iLink's 10-per-inbound allowance:
+// the 10th message carries the nudge, the 11th+ are queued (202), and an
+// inbound message from the recipient delivers the queue.
+func TestSendQuotaQueueAndFlush(t *testing.T) {
+	env := setup(t)
+	defer env.close()
+
+	env.register("quotauser", "password123")
+	creds, _ := json.Marshal(mockserver.Credentials{
+		BotID: "mock-bot-id", BotToken: "mock-token", ILinkUserID: "owner@im.wechat", SendQuota: 10,
+	})
+	botObj, err := env.db.CreateBot(env.userID(), "QuotaBot", "mock", "", creds)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := env.mgr.StartBot(context.Background(), botObj); err != nil {
+		t.Fatal(err)
+	}
+	ch, _ := env.db.CreateChannel(botObj.ID, "QChan", "", nil, nil)
+	inst, _ := env.mgr.GetInstance(botObj.ID)
+	if inst.Quota() == nil {
+		t.Fatal("quota layer not installed")
+	}
+	engine := inst.Quota().Unwrap().(*mockserver.Provider).Engine()
+
+	channelSend := func(text string) (int, map[string]any) {
+		resp := httpPost(t, env.srv.URL+"/api/v1/channels/send?key="+ch.APIKey, map[string]string{"text": text})
+		defer resp.Body.Close()
+		var r map[string]any
+		json.NewDecoder(resp.Body).Decode(&r)
+		return resp.StatusCode, r
+	}
+
+	for i := 1; i <= 10; i++ {
+		if code, r := channelSend(fmt.Sprintf("notify %d", i)); code != 200 {
+			t.Fatalf("send %d: %d %v", i, code, r)
+		}
+	}
+	sent := engine.SentMessages()
+	if len(sent) != 10 || !strings.Contains(sent[9].Text, "回复任意消息") || strings.Contains(sent[8].Text, "💬") {
+		t.Fatalf("10th must carry the nudge; sent=%d last=%q", len(sent), sent[len(sent)-1].Text)
+	}
+
+	code, r := channelSend("notify 11")
+	if code != 202 || r["queued"] != true || r["pending"] != float64(1) {
+		t.Fatalf("11th: %d %v, want 202 queued pending=1", code, r)
+	}
+	// Web console path queues too.
+	code, r = env.postCode("/api/bots/"+botObj.ID+"/send", map[string]string{"text": "notify 12"})
+	if code != 202 || r["pending"] != float64(2) {
+		t.Fatalf("12th via web: %d %v", code, r)
+	}
+	if len(engine.SentMessages()) != 10 {
+		t.Fatal("queued messages must not reach upstream")
+	}
+
+	// Quota endpoint + console messages payload.
+	code, q := env.get("/api/bots/" + botObj.ID + "/quota")
+	if code != 200 || q["enabled"] != true || q["limit"] != float64(10) {
+		t.Fatalf("quota endpoint: %d %v", code, q)
+	}
+	_, msgs := env.get("/api/bots/" + botObj.ID + "/messages")
+	mq, _ := msgs["quota"].(map[string]any)
+	if msgs["can_send"] != true || mq["remaining"] != float64(0) || mq["pending"] != float64(2) {
+		t.Fatalf("messages quota = %v can_send=%v", mq, msgs["can_send"])
+	}
+
+	// Recipient writes → allowance resets → queue delivered.
+	engine.InjectInbound(mockserver.InboundRequest{Sender: "owner@im.wechat", Text: "ok"})
+	deadline := time.Now().Add(3 * time.Second)
+	for len(engine.SentMessages()) < 12 && time.Now().Before(deadline) {
+		time.Sleep(20 * time.Millisecond)
+	}
+	sent = engine.SentMessages()
+	if len(sent) != 12 || sent[10].Text != "notify 11" || sent[11].Text != "notify 12" {
+		var texts []string
+		for _, s := range sent[10:] {
+			texts = append(texts, s.Text)
+		}
+		t.Fatalf("flush: sent=%d tail=%q", len(sent), texts)
+	}
+
+	// Flushed messages are recorded as outbound, quota shows 8 left.
+	time.Sleep(50 * time.Millisecond)
+	dbMsgs, _ := env.db.ListMessages(botObj.ID, 50, 0)
+	flushedRecorded := 0
+	for _, m := range dbMsgs {
+		if m.Direction == "outbound" && (strings.Contains(string(m.ItemList), "notify 11") || strings.Contains(string(m.ItemList), "notify 12")) {
+			flushedRecorded++
+		}
+	}
+	if flushedRecorded != 2 {
+		t.Errorf("flushed outbound records = %d, want 2", flushedRecorded)
+	}
+	_, msgs = env.get("/api/bots/" + botObj.ID + "/messages")
+	if mq, _ := msgs["quota"].(map[string]any); mq["remaining"] != float64(8) || mq["pending"] != float64(0) {
+		t.Errorf("after flush quota = %v", mq)
+	}
+}

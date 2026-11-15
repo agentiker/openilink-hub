@@ -42,20 +42,13 @@ func (s *Server) handleListBots(w http.ResponseWriter, r *http.Request) {
 		CreatedAt          int64           `json:"created_at"`
 		Extra              json.RawMessage `json:"extra,omitempty"`
 	}
-	// Batch check context_token freshness to avoid N+1 queries
-	botIDs := make([]string, len(bots))
-	for i, b := range bots {
-		botIDs[i] = b.ID
-	}
-	freshTokens := s.Store.BatchHasFreshContextToken(botIDs, contextTokenMaxAge)
-
 	var result []botResp
 	for _, b := range bots {
 		status := b.Status
 		if inst, ok := s.BotManager.GetInstance(b.ID); ok {
 			status = inst.Status()
 		}
-		canSend, reason := checkSendStatus(status, freshTokens[b.ID])
+		canSend, reason := checkBotSendable(status)
 		extra := extractPublicCredentials(b.Provider, b.Credentials)
 		result = append(result, botResp{
 			ID: b.ID, Name: b.Name, DisplayName: b.DisplayName, Provider: b.Provider,
@@ -88,8 +81,6 @@ func extractPublicCredentials(prov string, creds json.RawMessage) json.RawMessag
 	return nil
 }
 
-const contextTokenMaxAge = 24 * time.Hour
-
 // checkSendStatus is a pure function that determines send capability from pre-fetched data.
 func checkSendStatus(status string, hasFreshToken bool) (bool, string) {
 	if status == "session_expired" {
@@ -104,11 +95,6 @@ func checkSendStatus(status string, hasFreshToken bool) (bool, string) {
 	return true, ""
 }
 
-// checkSendability queries the DB and returns send capability for a single bot.
-func (s *Server) checkSendability(botID, status string) (bool, string) {
-	hasFresh := s.Store.HasFreshContextToken(botID, contextTokenMaxAge)
-	return checkSendStatus(status, hasFresh)
-}
 
 func (s *Server) handleBindStart(w http.ResponseWriter, r *http.Request) {
 	userID := auth.UserIDFromContext(r.Context())
@@ -408,6 +394,10 @@ func (s *Server) handleBotSend(w http.ResponseWriter, r *http.Request) {
 	}
 
 	clientID, err := inst.Send(r.Context(), msg)
+	if qe, ok := provider.AsQueued(err); ok {
+		writeQueued(w, qe, nil)
+		return
+	}
 	if err != nil {
 		code, m := sendErrorResponse(err)
 		jsonError(w, m, code)

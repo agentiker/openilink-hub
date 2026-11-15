@@ -29,6 +29,7 @@ func RunAll(t *testing.T, s store.Store) {
 	t.Run("AppLog", func(t *testing.T) { TestAppLogCRUD(t, s) })
 	t.Run("Session", func(t *testing.T) { TestSessionCRUD(t, s) })
 	t.Run("AppLifecycle", func(t *testing.T) { TestAppLifecycle(t, s) })
+	t.Run("SendQuota", func(t *testing.T) { TestSendQuota(t, s) })
 }
 
 // ---------------------------------------------------------------------------

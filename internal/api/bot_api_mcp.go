@@ -194,6 +194,9 @@ func (s *Server) mcpSendMessage(ctx context.Context, req mcp.CallToolRequest) (*
 	}
 
 	clientID, err := botInst.Send(ctx, outMsg)
+	if qe, ok := provider.AsQueued(err); ok {
+		return mcp.NewToolResultText(fmt.Sprintf("%s（待送达 %d 条）", msgQueued, qe.Pending)), nil
+	}
 	if err != nil {
 		slog.Error("mcp: send failed", "bot_id", inst.BotID, "err", err)
 		_, m := sendErrorResponse(err)

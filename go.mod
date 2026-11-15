@@ -18,7 +18,7 @@ require (
 )
 
 require (
-	github.com/agentiker/wxilink-sdk-go v0.7.0
+	github.com/agentiker/wxilink-sdk-go v0.8.0
 	github.com/dlclark/regexp2 v1.11.4 // indirect
 	github.com/dustin/go-humanize v1.0.1 // indirect
 	github.com/fxamacker/cbor/v2 v2.7.0 // indirect

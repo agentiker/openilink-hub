@@ -15,6 +15,7 @@ import (
 	"time"
 
 	ilink "github.com/agentiker/wxilink-sdk-go"
+	"github.com/agentiker/wxilink-sdk-go/quota"
 	"github.com/openilink/openilink-hub/internal/provider"
 	"github.com/youthlin/silk"
 )
@@ -47,6 +48,13 @@ type Provider struct {
 }
 
 func (p *Provider) Name() string { return "ilink" }
+
+// SendQuota implements provider.SendQuotaer: iLink allows 10 messages per
+// inbound user message (measured; see wxilink-sdk-go/quota).
+func (p *Provider) SendQuota() int { return quota.Limit }
+
+// DefaultRecipient implements provider.DefaultRecipienter.
+func (p *Provider) DefaultRecipient() string { return p.creds.ILinkUserID }
 
 func (p *Provider) Status() string {
 	v := p.status.Load()
