@@ -3,6 +3,7 @@ package ilink
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
 	"sync"
@@ -13,7 +14,7 @@ import (
 	"strings"
 	"time"
 
-	ilink "github.com/openilink/openilink-sdk-go"
+	ilink "github.com/agentiker/wxilink-sdk-go"
 	"github.com/openilink/openilink-hub/internal/provider"
 	"github.com/youthlin/silk"
 )
@@ -37,11 +38,12 @@ type syncState struct {
 }
 
 type Provider struct {
-	client *ilink.Client
-	creds  Credentials
-	cancel context.CancelFunc
-	status atomic.Value
-	mu     sync.Mutex
+	client   *ilink.Client
+	creds    Credentials
+	cancel   context.CancelFunc
+	status   atomic.Value
+	mu       sync.Mutex
+	onStatus func(string)
 }
 
 func (p *Provider) Name() string { return "ilink" }
@@ -60,6 +62,7 @@ func (p *Provider) Start(ctx context.Context, opts provider.StartOptions) error 
 		return err
 	}
 	p.creds = creds
+	p.onStatus = opts.OnStatus
 
 	clientOpts := []ilink.Option{
 		ilink.WithSILKDecoder(decodeSILK),
@@ -143,7 +146,53 @@ func (p *Provider) Stop() {
 	}
 }
 
+// Send delivers a message. Upstream refusals are returned as
+// *provider.SendError so callers can map them without knowing iLink codes.
 func (p *Provider) Send(ctx context.Context, msg provider.OutboundMessage) (string, error) {
+	clientID, err := p.send(ctx, msg)
+	if err != nil {
+		err = p.classifySendError(err)
+	}
+	return clientID, err
+}
+
+// ToSendError converts an iLink *APIError in err's chain into a
+// *provider.SendError. Other errors are returned unchanged.
+func ToSendError(err error) error {
+	var ae *ilink.APIError
+	if !errors.As(err, &ae) {
+		return err
+	}
+	se := &provider.SendError{Kind: provider.SendErrUnknown, Code: ae.Ret, Msg: ae.ErrMsg, Err: err}
+	if se.Code == 0 {
+		se.Code = ae.ErrCode
+	}
+	switch {
+	case ae.IsSessionExpired():
+		se.Kind = provider.SendErrAuthExpired
+	case ae.IsNoSession():
+		se.Kind = provider.SendErrNoSession
+	case ae.IsInvalidArgument():
+		se.Kind = provider.SendErrInvalidRecipient
+	}
+	return se
+}
+
+// classifySendError applies ToSendError and marks the bot session_expired
+// when the token is rejected.
+func (p *Provider) classifySendError(err error) error {
+	err = ToSendError(err)
+	if kind, _ := provider.SendErrorKindOf(err); kind == provider.SendErrAuthExpired && p.Status() != "session_expired" {
+		slog.Error("ilink send: bot token rejected, marking session_expired")
+		p.status.Store("session_expired")
+		if p.onStatus != nil {
+			p.onStatus("session_expired")
+		}
+	}
+	return err
+}
+
+func (p *Provider) send(ctx context.Context, msg provider.OutboundMessage) (string, error) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
@@ -153,7 +202,7 @@ func (p *Provider) Send(ctx context.Context, msg provider.OutboundMessage) (stri
 	}
 
 	slog.Info("send", "recipient", recipient, "has_data", len(msg.Data) > 0,
-		"file", msg.FileName, "text_len", len(msg.Text), "context_token", msg.ContextToken)
+		"file", msg.FileName, "text_len", len(msg.Text), "has_context_token", msg.ContextToken != "")
 
 	// Media send
 	if len(msg.Data) > 0 && msg.FileName != "" {

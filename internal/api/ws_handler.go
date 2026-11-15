@@ -115,7 +115,8 @@ func (s *Server) SetupUpstreamHandler() relay.UpstreamHandler {
 				ContextToken: ctxToken,
 			})
 			if err != nil {
-				conn.Send(relay.NewAck(env.ReqID, false, "", err.Error()))
+				_, m := sendErrorResponse(err)
+				conn.Send(relay.NewAck(env.ReqID, false, "", m))
 				return
 			}
 

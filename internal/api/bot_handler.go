@@ -390,7 +390,7 @@ func (s *Server) handleBotSend(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	canSend, reason := s.checkSendability(botID, inst.Status())
+	canSend, reason := checkBotSendable(inst.Status())
 	if !canSend {
 		jsonError(w, reason, http.StatusConflict)
 		return
@@ -409,7 +409,8 @@ func (s *Server) handleBotSend(w http.ResponseWriter, r *http.Request) {
 
 	clientID, err := inst.Send(r.Context(), msg)
 	if err != nil {
-		jsonError(w, err.Error(), http.StatusBadGateway)
+		code, m := sendErrorResponse(err)
+		jsonError(w, m, code)
 		return
 	}
 

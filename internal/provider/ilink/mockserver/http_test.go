@@ -12,7 +12,7 @@ import (
 	"testing"
 	"time"
 
-	ilink "github.com/openilink/openilink-sdk-go"
+	ilink "github.com/agentiker/wxilink-sdk-go"
 )
 
 func TestHTTPGetUpdates(t *testing.T) {

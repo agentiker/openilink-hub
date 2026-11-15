@@ -7,7 +7,7 @@ import (
 	"sync"
 	"time"
 
-	ilinkSDK "github.com/openilink/openilink-sdk-go"
+	ilinkSDK "github.com/agentiker/wxilink-sdk-go"
 	"github.com/openilink/openilink-hub/internal/provider"
 )
 

@@ -128,8 +128,7 @@ func (s *Server) HandleAppWSSend(conn *app.WSConn, msg map[string]any) {
 		return
 	}
 
-	// Check if the bot can send
-	if canSend, reason := s.checkSendability(conn.BotID, botInst.Status()); !canSend {
+	if canSend, reason := checkBotSendable(botInst.Status()); !canSend {
 		sendErr(reason)
 		return
 	}
@@ -145,7 +144,8 @@ func (s *Server) HandleAppWSSend(conn *app.WSConn, msg map[string]any) {
 	clientID, err := botInst.Send(context.Background(), outMsg)
 	if err != nil {
 		slog.Error("app ws send failed", "bot_id", conn.BotID, "err", err)
-		sendErr("send failed: " + err.Error())
+		_, m := sendErrorResponse(err)
+		sendErr(m)
 		return
 	}
 

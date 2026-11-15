@@ -4,7 +4,7 @@ import (
 	"sync"
 	"time"
 
-	ilink "github.com/openilink/openilink-sdk-go"
+	ilink "github.com/agentiker/wxilink-sdk-go"
 )
 
 // mediaEntry stores an uploaded media file in the engine.
@@ -70,6 +70,8 @@ type Engine struct {
 	media   map[string]*mediaEntry
 	qr      *qrSession
 	typing  map[string]bool
+	// sendErr, when set, makes every send fail with this iLink error.
+	sendErr *ilink.APIError
 }
 
 // NewEngine creates a new mock engine with the given options.

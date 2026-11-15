@@ -95,8 +95,7 @@ func (s *Server) handleBotAPISend(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Check if the bot can send (context_token freshness)
-	if canSend, reason := s.checkSendability(inst.BotID, botInst.Status()); !canSend {
+	if canSend, reason := checkBotSendable(botInst.Status()); !canSend {
 		botAPIError(w, reason, http.StatusConflict)
 		return
 	}
@@ -155,7 +154,8 @@ func (s *Server) handleBotAPISend(w http.ResponseWriter, r *http.Request) {
 	clientID, err := botInst.Send(r.Context(), outMsg)
 	if err != nil {
 		slog.Error("bot api: send failed", "bot_id", inst.BotID, "err", err)
-		botAPIError(w, "send failed: "+err.Error(), http.StatusBadGateway)
+		code, m := sendErrorResponse(err)
+		botAPIError(w, m, code)
 		return
 	}
 

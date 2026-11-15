@@ -18,6 +18,7 @@ import (
 	"testing"
 	"time"
 
+	ilinksdk "github.com/agentiker/wxilink-sdk-go"
 	"github.com/gorilla/websocket"
 	"github.com/openilink/openilink-hub/internal/api"
 	appdelivery "github.com/openilink/openilink-hub/internal/app"
@@ -50,6 +51,9 @@ func testDB(t *testing.T) *postgres.DB {
 	// every test after the first, silently skipping the suite.
 	if _, err := preDB.Exec("DROP SCHEMA IF EXISTS public CASCADE; CREATE SCHEMA public"); err != nil {
 		preDB.Close()
+		t.Skipf("skip: database unavailable: %v", err)
+	}
+	preDB.Close()
 
 	db, err := postgres.Open(dsn)
 	if err != nil {
@@ -3022,5 +3026,135 @@ func TestAppEventDelivery_HTTPAndWebSocket(t *testing.T) {
 	time.Sleep(500 * time.Millisecond)
 	if webhookCalls.Load() != webhookBefore+1 {
 		t.Errorf("phase 2: want 1 extra webhook call (channels are independent), got %d", webhookCalls.Load()-webhookBefore)
+	}
+}
+
+// ==================== Upstream send error mapping ====================
+
+// TestSendUpstreamErrorMapping verifies that iLink refusals (reported by the
+// real server as HTTP 200 + ret/errcode) surface on every send endpoint with
+// a specific status and message, and that refused messages are not stored.
+func TestSendUpstreamErrorMapping(t *testing.T) {
+	env := setup(t)
+	defer env.close()
+
+	env.register("senderr", "password123")
+	botObj := env.createBotForUser("Bot1")
+	env.mgr.StartBot(context.Background(), botObj)
+	ch, _ := env.db.CreateChannel(botObj.ID, "ErrChan", "", nil, nil)
+
+	appObj, err := env.db.CreateApp(&store.App{
+		OwnerID: env.userID(), Name: "ErrApp", Slug: "err-app-inttest",
+		Events: json.RawMessage(`[]`), Scopes: json.RawMessage(`["message:write"]`), Tools: json.RawMessage(`[]`),
+	})
+	if err != nil {
+		t.Fatalf("CreateApp: %v", err)
+	}
+	inst, err := env.db.InstallApp(appObj.ID, botObj.ID)
+	if err != nil {
+		t.Fatalf("InstallApp: %v", err)
+	}
+	if err := env.db.UpdateInstallation(inst.ID, "", inst.Config, appObj.Scopes, true); err != nil {
+		t.Fatalf("UpdateInstallation: %v", err)
+	}
+
+	botInst, ok := env.mgr.GetInstance(botObj.ID)
+	if !ok {
+		t.Fatal("bot instance not found")
+	}
+	engine := botInst.Provider.(*mockserver.Provider).Engine()
+
+	outboundCount := func() int {
+		msgs, _ := env.db.ListMessages(botObj.ID, 100, 0)
+		n := 0
+		for _, m := range msgs {
+			if m.Direction == "outbound" {
+				n++
+			}
+		}
+		return n
+	}
+
+	type endpoint struct {
+		name string
+		send func() (int, string)
+	}
+	readBody := func(resp *http.Response) (int, string) {
+		defer resp.Body.Close()
+		var r map[string]any
+		json.NewDecoder(resp.Body).Decode(&r)
+		msg, _ := r["error"].(string)
+		return resp.StatusCode, msg
+	}
+	endpoints := []endpoint{
+		{"web /api/bots/{id}/send", func() (int, string) {
+			code, r := env.postCode("/api/bots/"+botObj.ID+"/send", map[string]string{"text": "x"})
+			msg, _ := r["error"].(string)
+			return code, msg
+		}},
+		{"channel /api/v1/channels/send", func() (int, string) {
+			return readBody(httpPost(t, env.srv.URL+"/api/v1/channels/send?key="+ch.APIKey, map[string]string{"text": "x"}))
+		}},
+		{"bot api /bot/v1/message/send", func() (int, string) {
+			body, _ := json.Marshal(map[string]string{"to": "u@im.wechat", "content": "x"})
+			req, _ := http.NewRequest("POST", env.srv.URL+"/bot/v1/message/send", bytes.NewReader(body))
+			req.Header.Set("Authorization", "Bearer "+inst.AppToken)
+			req.Header.Set("Content-Type", "application/json")
+			resp, err := http.DefaultClient.Do(req)
+			if err != nil {
+				t.Fatal(err)
+			}
+			return readBody(resp)
+		}},
+	}
+
+	cases := []struct {
+		name     string
+		apiErr   *ilinksdk.APIError
+		wantCode int
+		wantMsg  string
+	}{
+		{"no session", &ilinksdk.APIError{Ret: -2, ErrMsg: "prepare failed"}, 409, "暂无法发送：对方需要先给 Bot 发一条消息"},
+		{"invalid recipient", &ilinksdk.APIError{Ret: -3, ErrMsg: "invalid arguments"}, 400, "接收人无效"},
+		{"auth expired", &ilinksdk.APIError{ErrCode: -14, ErrMsg: "session timeout"}, 503, "Bot 登录已失效，请重新扫码绑定"},
+	}
+
+	// Sending without any inbound message is no longer blocked by Hub; the
+	// upstream decides. With no injected error the mock accepts it.
+	for _, ep := range endpoints {
+		if code, msg := ep.send(); code != 200 {
+			t.Errorf("%s without inbound: got %d %q, want 200", ep.name, code, msg)
+		}
+	}
+	before := outboundCount()
+
+	for _, tc := range cases {
+		engine.SetSendError(tc.apiErr)
+		for _, ep := range endpoints {
+			t.Run(tc.name+"/"+ep.name, func(t *testing.T) {
+				code, msg := ep.send()
+				if code != tc.wantCode || msg != tc.wantMsg {
+					t.Errorf("got %d %q, want %d %q", code, msg, tc.wantCode, tc.wantMsg)
+				}
+			})
+		}
+
+		// WebSocket relay send_text: refusal surfaces in the ack.
+		t.Run(tc.name+"/ws send_text", func(t *testing.T) {
+			ws := env.connectWS(t, ch.APIKey)
+			defer ws.Close()
+			readWS(t, ws) // init
+			ws.WriteJSON(map[string]any{"type": "send_text", "req_id": "r1", "data": map[string]string{"text": "x"}})
+			ack := readWS(t, ws)
+			data, _ := ack["data"].(map[string]any)
+			if data == nil || data["success"] != false || data["error"] != tc.wantMsg {
+				t.Errorf("ack = %v, want success=false error=%q", ack, tc.wantMsg)
+			}
+		})
+	}
+	engine.SetSendError(nil)
+
+	if got := outboundCount(); got != before {
+		t.Errorf("outbound messages stored for refused sends: before=%d after=%d", before, got)
 	}
 }

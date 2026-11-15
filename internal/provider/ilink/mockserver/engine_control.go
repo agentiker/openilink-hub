@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	ilink "github.com/openilink/openilink-sdk-go"
+	ilink "github.com/agentiker/wxilink-sdk-go"
 )
 
 // InjectInbound simulates an incoming message from a user.
@@ -264,6 +264,7 @@ func (e *Engine) Reset() {
 	e.media = make(map[string]*mediaEntry)
 	e.qr = nil
 	e.typing = make(map[string]bool)
+	e.sendErr = nil
 }
 
 // SetToken sets the engine's authentication token.
@@ -278,4 +279,27 @@ func (e *Engine) SetStatus(status string) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 	e.status = status
+}
+
+// SetSendError makes all subsequent sends fail with the given iLink error,
+// as the real server does in-band (HTTP 200 + ret/errcode). Pass nil to
+// clear. Common values:
+//
+//	&ilink.APIError{Ret: -2, ErrMsg: "prepare failed"}       // no session
+//	&ilink.APIError{Ret: -3, ErrMsg: "invalid arguments"}    // bad recipient
+//	&ilink.APIError{ErrCode: -14, ErrMsg: "session timeout"} // token expired
+func (e *Engine) SetSendError(err *ilink.APIError) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	e.sendErr = err
+}
+
+func (e *Engine) injectedSendError() error {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	if e.sendErr == nil {
+		return nil
+	}
+	cp := *e.sendErr
+	return &cp
 }

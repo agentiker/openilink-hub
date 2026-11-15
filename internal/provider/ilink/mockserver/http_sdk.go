@@ -3,10 +3,11 @@ package mockserver
 import (
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
 
-	ilink "github.com/openilink/openilink-sdk-go"
+	ilink "github.com/agentiker/wxilink-sdk-go"
 )
 
 // --- SDK endpoint handlers ---
@@ -64,6 +65,12 @@ func (s *HTTPServer) handleSendMessage(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := s.engine.SendMessage(req.Msg); err != nil {
+		// iLink reports refusals in-band: HTTP 200 + ret/errcode.
+		var ae *ilink.APIError
+		if errors.As(err, &ae) {
+			writeJSON(w, http.StatusOK, map[string]any{"ret": ae.Ret, "errcode": ae.ErrCode, "errmsg": ae.ErrMsg})
+			return
+		}
 		writeJSON(w, http.StatusInternalServerError, map[string]any{"ret": -1, "errmsg": err.Error()})
 		return
 	}

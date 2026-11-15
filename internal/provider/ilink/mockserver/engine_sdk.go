@@ -11,7 +11,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	ilink "github.com/openilink/openilink-sdk-go"
+	ilink "github.com/agentiker/wxilink-sdk-go"
 )
 
 var syncCounter atomic.Int64
@@ -78,6 +78,9 @@ done:
 
 // SendText sends a text message and returns the generated client ID.
 func (e *Engine) SendText(recipient, text, contextToken string) (string, error) {
+	if err := e.injectedSendError(); err != nil {
+		return "", err
+	}
 	clientID := fmt.Sprintf("sdk-%d-%s", e.clock.Now().UnixMilli(), randomHex(4))
 
 	e.mu.Lock()
@@ -106,6 +109,9 @@ func (e *Engine) Push(recipient, text string) (string, error) {
 
 // SendMessage sends a full WeixinMessage, extracting text and media from items.
 func (e *Engine) SendMessage(msg *ilink.WeixinMessage) error {
+	if err := e.injectedSendError(); err != nil {
+		return err
+	}
 	var text string
 	for _, item := range msg.ItemList {
 		if item.TextItem != nil {
@@ -170,6 +176,9 @@ func (e *Engine) SendMessage(msg *ilink.WeixinMessage) error {
 
 // SendMediaFile encrypts and stores media data, then records a sent message.
 func (e *Engine) SendMediaFile(recipient, contextToken string, data []byte, fileName, text string) error {
+	if err := e.injectedSendError(); err != nil {
+		return err
+	}
 	keyRaw, keyHex := generateAESKey()
 	ciphertext, err := encryptMedia(data, keyRaw)
 	if err != nil {

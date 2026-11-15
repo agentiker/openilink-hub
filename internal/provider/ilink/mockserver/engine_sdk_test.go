@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	ilink "github.com/openilink/openilink-sdk-go"
+	ilink "github.com/agentiker/wxilink-sdk-go"
 )
 
 func newTestEngine(opts ...Option) (*Engine, *FakeClock) {

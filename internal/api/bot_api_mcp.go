@@ -140,7 +140,7 @@ func (s *Server) mcpSendMessage(ctx context.Context, req mcp.CallToolRequest) (*
 		return mcp.NewToolResultError("bot not connected"), nil
 	}
 
-	if canSend, reason := s.checkSendability(inst.BotID, botInst.Status()); !canSend {
+	if canSend, reason := checkBotSendable(botInst.Status()); !canSend {
 		return mcp.NewToolResultError(reason), nil
 	}
 
@@ -196,7 +196,8 @@ func (s *Server) mcpSendMessage(ctx context.Context, req mcp.CallToolRequest) (*
 	clientID, err := botInst.Send(ctx, outMsg)
 	if err != nil {
 		slog.Error("mcp: send failed", "bot_id", inst.BotID, "err", err)
-		return mcp.NewToolResultError("send failed: " + err.Error()), nil
+		_, m := sendErrorResponse(err)
+		return mcp.NewToolResultError(m), nil
 	}
 
 	// Store media to ObjectStore if available

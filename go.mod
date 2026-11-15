@@ -11,7 +11,6 @@ require (
 	github.com/jackc/pgx/v5 v5.8.0
 	github.com/mark3labs/mcp-go v0.46.0
 	github.com/minio/minio-go/v7 v7.0.99
-	github.com/openilink/openilink-sdk-go v0.6.0
 	github.com/pressly/goose/v3 v3.27.0
 	github.com/youthlin/silk v0.0.4
 	golang.org/x/oauth2 v0.36.0
@@ -19,6 +18,7 @@ require (
 )
 
 require (
+	github.com/agentiker/wxilink-sdk-go v0.7.0
 	github.com/dlclark/regexp2 v1.11.4 // indirect
 	github.com/dustin/go-humanize v1.0.1 // indirect
 	github.com/fxamacker/cbor/v2 v2.7.0 // indirect

@@ -5,8 +5,9 @@ import (
 	"encoding/json"
 	"fmt"
 
+	ilink "github.com/agentiker/wxilink-sdk-go"
 	"github.com/openilink/openilink-hub/internal/provider"
-	ilink "github.com/openilink/openilink-sdk-go"
+	ilinkprov "github.com/openilink/openilink-hub/internal/provider/ilink"
 )
 
 func init() {
@@ -104,7 +105,17 @@ func (p *Provider) Stop() {
 }
 
 // Send sends an outbound message via the engine.
+// Send delivers via the engine. Injected iLink errors (Engine.SetSendError)
+// are classified exactly like the real ilink provider does.
 func (p *Provider) Send(ctx context.Context, msg provider.OutboundMessage) (string, error) {
+	id, err := p.send(msg)
+	if err != nil {
+		err = ilinkprov.ToSendError(err)
+	}
+	return id, err
+}
+
+func (p *Provider) send(msg provider.OutboundMessage) (string, error) {
 	if len(msg.Data) > 0 && msg.FileName != "" {
 		return "", p.engine.SendMediaFile(msg.Recipient, msg.ContextToken, msg.Data, msg.FileName, msg.Text)
 	}

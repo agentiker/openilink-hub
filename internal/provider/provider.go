@@ -3,8 +3,63 @@ package provider
 import (
 	"context"
 	"encoding/json"
+	"errors"
+	"fmt"
 	"sync"
 )
+
+// SendErrorKind classifies why a provider refused to deliver a message.
+type SendErrorKind int
+
+const (
+	// SendErrUnknown is any other upstream refusal.
+	SendErrUnknown SendErrorKind = iota
+	// SendErrNoSession: the recipient has no usable session with the bot and
+	// must send the bot a message first (iLink ret=-2 "prepare failed").
+	SendErrNoSession
+	// SendErrInvalidRecipient: bad recipient or parameters (iLink ret=-3).
+	SendErrInvalidRecipient
+	// SendErrAuthExpired: the bot credentials are no longer valid and the bot
+	// must be re-bound (iLink errcode=-14).
+	SendErrAuthExpired
+)
+
+func (k SendErrorKind) String() string {
+	switch k {
+	case SendErrNoSession:
+		return "no_session"
+	case SendErrInvalidRecipient:
+		return "invalid_recipient"
+	case SendErrAuthExpired:
+		return "auth_expired"
+	}
+	return "unknown"
+}
+
+// SendError is returned by Provider.Send when the upstream service refused
+// the message (as opposed to local or transport failures).
+type SendError struct {
+	Kind SendErrorKind
+	Code int    // provider-specific code (e.g. iLink ret/errcode)
+	Msg  string // provider-specific message
+	Err  error  // underlying error
+}
+
+func (e *SendError) Error() string {
+	return fmt.Sprintf("send refused (%s, code=%d): %s", e.Kind, e.Code, e.Msg)
+}
+
+func (e *SendError) Unwrap() error { return e.Err }
+
+// SendErrorKindOf returns the kind of a *SendError in err's chain, or
+// SendErrUnknown with ok=false if there is none.
+func SendErrorKindOf(err error) (kind SendErrorKind, ok bool) {
+	var se *SendError
+	if errors.As(err, &se) {
+		return se.Kind, true
+	}
+	return SendErrUnknown, false
+}
 
 // Provider abstracts a messaging bot connection (iLink, future providers, etc.).
 type Provider interface {

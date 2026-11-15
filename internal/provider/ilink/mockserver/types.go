@@ -3,7 +3,7 @@ package mockserver
 import (
 	"encoding/json"
 
-	ilink "github.com/openilink/openilink-sdk-go"
+	ilink "github.com/agentiker/wxilink-sdk-go"
 )
 
 // InboundRequest represents a simulated incoming message from a user.
