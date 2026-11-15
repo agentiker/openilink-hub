@@ -11,12 +11,13 @@ import {
   Film,
   FileText,
   ChevronDown,
+  Clock,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { api } from "@/lib/api";
+import { api, type SendQuota, type SendResult } from "@/lib/api";
 import { useBotPush, usePushListener } from "@/lib/ws";
 import { MessageItem, type MessageItemData } from "./message-items";
 
@@ -41,6 +42,8 @@ export function ConsolePage() {
   const [loading, setLoading] = useState(true);
   const [canSend, setCanSend] = useState(true);
   const [sendDisabledReason, setSendDisabledReason] = useState<string>();
+  const [quota, setQuota] = useState<SendQuota>();
+  const [sendNotice, setSendNotice] = useState("");
   const [stagedFile, setStagedFile] = useState<File | null>(null);
   const [stagedPreview, setStagedPreview] = useState<string | null>(null);
   const [dragOver, setDragOver] = useState(false);
@@ -53,7 +56,6 @@ export function ConsolePage() {
   const dragDepthRef = useRef(0);
   const stagedPreviewRef = useRef<string | null>(null);
 
-
   const fetchData = useCallback(async () => {
     if (!botId) return;
     try {
@@ -65,6 +67,8 @@ export function ConsolePage() {
         setSendDisabledReason(res.send_disabled_reason);
         if (res.can_send) setSendError("");
       }
+      setQuota(res.quota);
+      if (res.quota && res.quota.pending === 0) setSendNotice("");
     } catch (err: any) {
       setLoadError(err?.message || "消息加载失败");
     } finally {
@@ -74,11 +78,16 @@ export function ConsolePage() {
 
   // Subscribe to push events for real-time updates.
   useBotPush(botId);
-  usePushListener(useCallback((env) => {
-    if (env.type === "message_new" && env.data?.bot_id === botId) {
-      fetchData();
-    }
-  }, [botId, fetchData]));
+  usePushListener(
+    useCallback(
+      (env) => {
+        if (env.type === "message_new" && env.data?.bot_id === botId) {
+          fetchData();
+        }
+      },
+      [botId, fetchData],
+    ),
+  );
 
   useEffect(() => {
     fetchData();
@@ -178,8 +187,12 @@ export function ConsolePage() {
     if (!canSend) return;
 
     setSendError("");
+    setSendNotice("");
     setSending(true);
     const text = input;
+    const noteQueued = (r?: SendResult) => {
+      if (r?.queued) setSendNotice(r.message || "消息已排队，对方回复后自动送达");
+    };
 
     try {
       if (hasFile && stagedFile) {
@@ -195,14 +208,15 @@ export function ConsolePage() {
           window.location.href = "/login";
           throw new Error("unauthorized");
         }
+        const data = await r.json().catch(() => ({}));
         if (!r.ok) {
-          const data = await r.json().catch(() => ({}));
           throw new Error(data.error || `HTTP ${r.status}`);
         }
+        noteQueued(data);
         clearStaged();
         setInput("");
       } else {
-        await api.sendMessage(botId!, { text });
+        noteQueued(await api.sendMessage(botId!, { text }));
         setInput("");
       }
       fetchData();
@@ -341,6 +355,7 @@ export function ConsolePage() {
               <span>{sendDisabledReason || "当前无法发送消息"}</span>
             </div>
           ) : null}
+          {canSend && quota ? <QuotaBanner quota={quota} notice={sendNotice} /> : null}
           {sendError ? (
             <div className="flex items-center gap-2 text-xs text-destructive bg-destructive/5 border border-destructive/10 rounded-lg px-3 py-2">
               <Ban className="h-3.5 w-3.5 shrink-0" />
@@ -475,6 +490,39 @@ function MessageContent({ m }: { m: Message }) {
           direction={m.direction}
         />
       ))}
+    </div>
+  );
+}
+
+/**
+ * iLink lets the bot send 10 messages per message the recipient sends.
+ * Shows what is left; beyond it messages are queued and delivered when the
+ * recipient replies (the 10th message tells them to).
+ */
+export function QuotaBanner({ quota, notice }: { quota: SendQuota; notice: string }) {
+  const exhausted = quota.remaining <= 0;
+  const low = !exhausted && quota.remaining <= 2;
+  let text: string;
+  if (exhausted) {
+    text = `对方本轮接收额度已用完，新消息将排队，对方回复 Bot 后自动送达${quota.pending > 0 ? `（待送达 ${quota.pending} 条）` : ""}`;
+  } else {
+    text = `对方本轮还可接收 ${quota.remaining}/${quota.limit} 条${quota.pending > 0 ? `，待送达 ${quota.pending} 条` : ""}`;
+    if (quota.remaining === 1) text += "（最后一条会提醒对方回复）";
+  }
+  if (notice) text = `${notice} · ${text}`;
+  const tone =
+    exhausted || notice
+      ? "text-amber-700 dark:text-amber-400 bg-amber-500/10 border border-amber-500/20"
+      : low
+        ? "text-amber-700 dark:text-amber-400 bg-muted/50"
+        : "text-muted-foreground bg-muted/50";
+  return (
+    <div
+      className={`flex items-center gap-2 text-xs rounded-lg px-3 py-2 ${tone}`}
+      data-testid="quota-banner"
+    >
+      <Clock className="h-3.5 w-3.5 shrink-0" />
+      <span>{text}</span>
     </div>
   );
 }

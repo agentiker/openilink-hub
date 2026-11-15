@@ -16,6 +16,26 @@ export interface Bot {
   extra?: Record<string, any>;
 }
 
+/** Per-recipient iLink send allowance (10 per message the recipient sends). */
+export interface SendQuota {
+  recipient: string;
+  limit: number;
+  used: number;
+  remaining: number;
+  /** Messages queued until the recipient messages the bot again. */
+  pending: number;
+  reset_at: number;
+}
+
+/** Response of a send call. queued=true means accepted for later delivery. */
+export interface SendResult {
+  ok: boolean;
+  client_id?: string;
+  queued?: boolean;
+  pending?: number;
+  message?: string;
+}
+
 export function botDisplayName(bot: Pick<Bot, "display_name" | "name">): string {
   return bot.display_name || bot.name;
 }
@@ -154,9 +174,14 @@ export const api = {
       has_more: boolean;
       can_send?: boolean;
       send_disabled_reason?: string;
+      quota?: SendQuota;
     }>(`/api/bots/${botId}/messages?limit=${limit}${cursor ? "&cursor=" + cursor : ""}`),
   sendMessage: (botId: string, data: any) =>
-    request(`/api/bots/${botId}/send`, { method: "POST", body: JSON.stringify(data) }),
+    request<SendResult>(`/api/bots/${botId}/send`, { method: "POST", body: JSON.stringify(data) }),
+  botQuota: (botId: string) =>
+    request<{ enabled: boolean; limit?: number; recipients: SendQuota[] }>(
+      `/api/bots/${botId}/quota`,
+    ),
 
   // Admin: system config
   getOAuthConfig: () => request<Record<string, any>>("/api/admin/config/oauth"),
