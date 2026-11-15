@@ -362,15 +362,10 @@ func (m *Manager) onInbound(inst *Instance, msg provider.InboundMessage) {
 	msgID := result.ID
 
 	// A new inbound message restores the sender's send allowance; deliver
-	// anything queued while it was used up.
-	if q := inst.Quota(); q != nil {
-		for _, who := range []string{msg.Sender, msg.GroupID} {
-			if who == "" {
-				continue
-			}
-			q.OnInbound(who)
-			go q.Flush(context.Background(), who)
-		}
+	// anything queued while it was used up. (ClawBot has no group chats.)
+	if q := inst.Quota(); q != nil && msg.Sender != "" {
+		q.OnInbound(msg.Sender)
+		go q.Flush(context.Background(), msg.Sender)
 	}
 
 	// Create OTel-style tracer for this message
