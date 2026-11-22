@@ -449,6 +449,18 @@ func TestBotCRUD(t *testing.T, s store.Store) {
 		}
 	})
 
+	t.Run("GetBotStats_NoBots", func(t *testing.T) {
+		// A user without bots must get zeros, not an error (SUM over no rows is NULL).
+		lonely := mustCreateUser(t, s, "statsnobots", "No Bots")
+		stats, err := s.GetBotStats(lonely.ID)
+		if err != nil {
+			t.Fatalf("GetBotStats with no bots: %v", err)
+		}
+		if stats.TotalBots != 0 || stats.OnlineBots != 0 || stats.TotalMessages != 0 {
+			t.Errorf("stats = %+v, want zeros", stats)
+		}
+	})
+
 	t.Run("GetBotStats", func(t *testing.T) {
 		stats, err := s.GetBotStats(u.ID)
 		if err != nil {

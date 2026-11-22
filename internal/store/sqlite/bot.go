@@ -193,12 +193,12 @@ func (db *DB) CountBotsByUser(userID string) (int, error) {
 
 func (db *DB) GetAdminStats() (*store.AdminStats, error) {
 	s := &store.AdminStats{}
-	db.QueryRow(`SELECT COUNT(*), SUM(CASE WHEN status = 'active' THEN 1 ELSE 0 END) FROM users`).
+	db.QueryRow(`SELECT COUNT(*), COALESCE(SUM(CASE WHEN status = 'active' THEN 1 ELSE 0 END), 0) FROM users`).
 		Scan(&s.TotalUsers, &s.ActiveUsers)
-	db.QueryRow(`SELECT COUNT(*), SUM(CASE WHEN status = 'connected' THEN 1 ELSE 0 END), SUM(CASE WHEN status = 'session_expired' THEN 1 ELSE 0 END) FROM bots`).
+	db.QueryRow(`SELECT COUNT(*), COALESCE(SUM(CASE WHEN status = 'connected' THEN 1 ELSE 0 END), 0), COALESCE(SUM(CASE WHEN status = 'session_expired' THEN 1 ELSE 0 END), 0) FROM bots`).
 		Scan(&s.TotalBots, &s.OnlineBots, &s.ExpiredBots)
 	db.QueryRow(`SELECT COUNT(*) FROM channels`).Scan(&s.TotalChannels)
-	db.QueryRow(`SELECT COUNT(*), SUM(CASE WHEN direction = 'inbound' THEN 1 ELSE 0 END), SUM(CASE WHEN direction = 'outbound' THEN 1 ELSE 0 END) FROM messages`).
+	db.QueryRow(`SELECT COUNT(*), COALESCE(SUM(CASE WHEN direction = 'inbound' THEN 1 ELSE 0 END), 0), COALESCE(SUM(CASE WHEN direction = 'outbound' THEN 1 ELSE 0 END), 0) FROM messages`).
 		Scan(&s.TotalMessages, &s.InboundMessages, &s.OutboundMessages)
 	db.QueryRow(`SELECT COUNT(*) FROM app_installations WHERE enabled = 1`).Scan(&s.TotalInstallations)
 	return s, nil
@@ -209,7 +209,7 @@ func (db *DB) GetBotStats(userID string) (*store.BotStats, error) {
 	err := db.QueryRow(`
 		SELECT
 			COUNT(*),
-			SUM(CASE WHEN status = 'connected' THEN 1 ELSE 0 END),
+			COALESCE(SUM(CASE WHEN status = 'connected' THEN 1 ELSE 0 END), 0),
 			COALESCE(SUM(msg_count), 0)
 		FROM bots WHERE user_id = ?`, userID,
 	).Scan(&s.TotalBots, &s.OnlineBots, &s.TotalMessages)
