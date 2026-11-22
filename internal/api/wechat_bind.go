@@ -154,6 +154,15 @@ func validBindCode(c string) bool {
 	return true
 }
 
+// newBindLinkURL creates a short binding link and returns its full URL.
+func (s *Server) newBindLinkURL(botID, ilinkUserID string, exp time.Time) (string, error) {
+	code, err := s.createBindLink(botID, ilinkUserID, exp)
+	if err != nil {
+		return "", err
+	}
+	return strings.TrimRight(s.Config.RPOrigin, "/") + "/w/" + code, nil
+}
+
 // createBindLink stores a short link and returns its code. Expired links
 // are pruned opportunistically.
 func (s *Server) createBindLink(botID, ilinkUserID string, exp time.Time) (string, error) {
@@ -178,13 +187,21 @@ type wxStateStore struct {
 }
 
 type wxState struct {
-	claims bindClaims
-	exp    time.Time
+	purpose string // stateBind or stateLogin
+	claims  bindClaims
+	exp     time.Time
 }
+
+const (
+	stateBind  = "bind"  // identity binding (/w/{code} → /wx/bind/callback)
+	stateLogin = "login" // mobile one-tap login (/m → /m/callback)
+)
 
 var wxStates = &wxStateStore{m: map[string]wxState{}}
 
-func (st *wxStateStore) put(c bindClaims) string {
+func (st *wxStateStore) put(c bindClaims) string { return st.putState(wxState{purpose: stateBind, claims: c}) }
+
+func (st *wxStateStore) putState(v wxState) string {
 	b := make([]byte, 16)
 	rand.Read(b)
 	key := hex.EncodeToString(b)
@@ -196,16 +213,18 @@ func (st *wxStateStore) put(c bindClaims) string {
 			delete(st.m, k)
 		}
 	}
-	st.m[key] = wxState{claims: c, exp: now.Add(bindStateTTL)}
+	v.exp = now.Add(bindStateTTL)
+	st.m[key] = v
 	return key
 }
 
-func (st *wxStateStore) take(key string) (*bindClaims, bool) {
+// take consumes a state (single use) of the given purpose.
+func (st *wxStateStore) take(key, purpose string) (*bindClaims, bool) {
 	st.mu.Lock()
 	defer st.mu.Unlock()
 	v, ok := st.m[key]
 	delete(st.m, key)
-	if !ok || time.Now().After(v.exp) {
+	if !ok || v.purpose != purpose || time.Now().After(v.exp) {
 		return nil, false
 	}
 	return &v.claims, true
@@ -244,13 +263,12 @@ func (s *Server) handleWeChatBindLink(w http.ResponseWriter, r *http.Request) {
 	}
 
 	exp := time.Now().Add(bindTokenTTL)
-	code, err := s.createBindLink(botID, req.Recipient, exp)
+	link, err := s.newBindLinkURL(botID, req.Recipient, exp)
 	if err != nil {
 		slog.Error("wechat bind: create link failed", "bot", botID, "err", err)
 		jsonError(w, "create link failed", http.StatusInternalServerError)
 		return
 	}
-	link := strings.TrimRight(s.Config.RPOrigin, "/") + "/w/" + code
 	resp := map[string]any{"url": link, "expires_at": exp.Unix(), "recipient": req.Recipient, "sent": false}
 
 	if req.Send {
@@ -327,7 +345,7 @@ func (s *Server) startWeChatBind(w http.ResponseWriter, r *http.Request, claims 
 
 // GET /wx/bind/callback?code=…&state=…
 func (s *Server) handleWeChatBindCallback(w http.ResponseWriter, r *http.Request) {
-	claims, ok := wxStates.take(r.URL.Query().Get("state"))
+	claims, ok := wxStates.take(r.URL.Query().Get("state"), stateBind)
 	if !ok {
 		renderBindPage(w, http.StatusBadRequest, "授权已过期", "请重新点击绑定链接。")
 		return

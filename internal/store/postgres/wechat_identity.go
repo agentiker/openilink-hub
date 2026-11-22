@@ -78,3 +78,20 @@ func (db *DB) PruneWeChatBindLinks(before int64) error {
 	_, err := db.Exec(`DELETE FROM wechat_bind_links WHERE expires_at < $1`, before)
 	return err
 }
+
+func (db *DB) FindWeChatIdentities(appID, openID, unionID string) ([]store.WeChatIdentity, error) {
+	rows, err := db.Query(`SELECT `+wechatIdentityCols+` FROM wechat_identities WHERE (app_id = $1 AND openid = $2) OR ($3 != '' AND unionid = $3) ORDER BY updated_at DESC`, appID, openID, unionID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []store.WeChatIdentity
+	for rows.Next() {
+		id, err := scanWeChatIdentity(rows)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, *id)
+	}
+	return out, rows.Err()
+}

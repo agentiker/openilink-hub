@@ -27,6 +27,7 @@ import (
 	"github.com/openilink/openilink-hub/internal/auth"
 	"github.com/openilink/openilink-hub/internal/bot"
 	"github.com/openilink/openilink-hub/internal/config"
+	ilinkprovider "github.com/openilink/openilink-hub/internal/provider/ilink"
 	"github.com/openilink/openilink-hub/internal/provider/ilink/mockserver"
 	"github.com/openilink/openilink-hub/internal/relay"
 	"github.com/openilink/openilink-hub/internal/sink"
@@ -3582,5 +3583,177 @@ func TestBotAdminPermissions(t *testing.T) {
 	resp.Body.Close()
 	if resp.StatusCode != 403 {
 		t.Errorf("member unbind = %d, want 403", resp.StatusCode)
+	}
+}
+
+// ==================== Two-stage onboarding: scan registration → one-tap mobile login ====================
+
+func TestTwoStageOnboarding(t *testing.T) {
+	// Fake 服务号 OAuth: code "code-<openid>" → that openid.
+	wx := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/sns/oauth2/access_token":
+			c := r.URL.Query().Get("code")
+			if !strings.HasPrefix(c, "code-") {
+				w.Write([]byte(`{"errcode":40029,"errmsg":"invalid code"}`))
+				return
+			}
+			fmt.Fprintf(w, `{"access_token":"at","openid":"%s","scope":"snsapi_base"}`, strings.TrimPrefix(c, "code-"))
+		case "/sns/userinfo":
+			w.Write([]byte(`{"openid":"o-new","nickname":"王五"}`))
+		}
+	}))
+	defer wx.Close()
+	oldAPI := wechatmp.APIBase
+	wechatmp.APIBase = wx.URL
+	defer func() { wechatmp.APIBase = oldAPI }()
+
+	// Mock iLink for both QR binding and the resulting bot.
+	ilinkMock := mockserver.NewHTTPServer()
+	ilinkSrv := httptest.NewServer(ilinkMock.Handler())
+	defer ilinkSrv.Close()
+	ilinkprovider.BindBaseURL = ilinkSrv.URL
+	defer func() { ilinkprovider.BindBaseURL = "" }()
+
+	env := setup(t)
+	defer env.close()
+	env.register("twostageadmin", "password123") // superadmin
+	env.put("/api/admin/config/wechat-mp", map[string]string{"app_id": "wxtwo", "app_secret": "s"})
+	env.put("/api/admin/config/registration", map[string]string{"enabled": "true"})
+
+	// ---- Stage 1: a new WeChat user registers by scanning at /login ----
+	jar, _ := cookiejar.New(nil)
+	phone := &http.Client{Jar: jar}
+	resp, err := phone.Post(env.srv.URL+"/api/auth/scan/start", "application/json", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var start map[string]string
+	json.NewDecoder(resp.Body).Decode(&start)
+	resp.Body.Close()
+	if start["session_id"] == "" {
+		t.Fatalf("scan start = %v", start)
+	}
+	ws, _, err := websocket.DefaultDialer.Dial("ws"+strings.TrimPrefix(env.srv.URL, "http")+"/api/auth/scan/status/"+start["session_id"], nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer ws.Close()
+	go func() {
+		time.Sleep(200 * time.Millisecond)
+		ilinkMock.Engine().ConfirmQR(mockserver.Credentials{
+			BotID: "newbot@im.bot", BotToken: "tok-new", BaseURL: ilinkSrv.URL, ILinkUserID: "newuser@im.wechat",
+		})
+	}()
+	var connected map[string]any
+	ws.SetReadDeadline(time.Now().Add(10 * time.Second))
+	for {
+		var ev map[string]any
+		if err := ws.ReadJSON(&ev); err != nil {
+			t.Fatalf("scan ws: %v", err)
+		}
+		if ev["status"] == "connected" {
+			connected = ev
+			break
+		}
+		if ev["event"] == "error" {
+			t.Fatalf("scan error: %v", ev)
+		}
+	}
+	botID, _ := connected["bot_id"].(string)
+	if connected["is_new"] != true || botID == "" {
+		t.Fatalf("scan connected = %v", connected)
+	}
+
+	// The new bot offers an identity-binding link (queued until the user writes, or sent).
+	var offer string
+	deadline := time.Now().Add(5 * time.Second)
+	for offer == "" && time.Now().Before(deadline) {
+		for _, m := range ilinkMock.Engine().SentMessages() {
+			if strings.Contains(m.Text, "/w/") {
+				offer = m.Text
+			}
+		}
+		if offer == "" {
+			if items, _ := env.db.ListOutbox(botID, "newuser@im.wechat", 10); len(items) > 0 && strings.Contains(items[0].Text, "/w/") {
+				offer = items[0].Text
+			}
+		}
+		time.Sleep(50 * time.Millisecond)
+	}
+	if !strings.Contains(offer, "欢迎使用 Hi微连") || !strings.Contains(offer, "/m") {
+		t.Fatalf("identity binding offer = %q", offer)
+	}
+	linkPath := offer[strings.Index(offer, "/w/"):]
+	linkPath = strings.Fields(linkPath)[0]
+
+	noRedirect := &http.Client{Jar: jar, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
+	const wechatUA = "Mozilla/5.0 (iPhone) MicroMessenger/8.0.50"
+	get := func(p string) (*http.Response, string) {
+		req, _ := http.NewRequest("GET", env.srv.URL+p, nil)
+		req.Header.Set("User-Agent", wechatUA)
+		r, err := noRedirect.Do(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		b, _ := io.ReadAll(r.Body)
+		r.Body.Close()
+		return r, string(b)
+	}
+	stateOf := func(loc string) string { return loc[strings.Index(loc, "state=")+6 : strings.Index(loc, "#")] }
+
+	// /m before binding: no linked account.
+	r, _ := get("/m")
+	if r.StatusCode != 302 || !strings.Contains(r.Header.Get("Location"), "scope=snsapi_base") {
+		t.Fatalf("/m = %d %s", r.StatusCode, r.Header.Get("Location"))
+	}
+	if r, b := get("/m/callback?code=code-o-new&state=" + stateOf(r.Header.Get("Location"))); r.StatusCode != 200 || !strings.Contains(b, "还没有关联账号") {
+		t.Fatalf("unbound /m/callback = %d %s", r.StatusCode, b)
+	}
+
+	// User opens the binding link from the bot (stage 1 → 2).
+	r, _ = get(linkPath)
+	if r.StatusCode != 302 {
+		t.Fatalf("bind link = %d", r.StatusCode)
+	}
+	bindState := stateOf(r.Header.Get("Location"))
+	// A binding state cannot be replayed as a login state.
+	if r, _ := get("/m/callback?code=code-o-new&state=" + bindState); r.StatusCode != 400 {
+		t.Errorf("bind state accepted by /m/callback: %d", r.StatusCode)
+	}
+	r, _ = get(linkPath)
+	if r, b := get("/wx/bind/callback?code=code-o-new&state=" + stateOf(r.Header.Get("Location"))); r.StatusCode != 200 || !strings.Contains(b, "绑定成功") {
+		t.Fatalf("bind callback = %d %s", r.StatusCode, b)
+	}
+
+	// ---- Stage 2: one tap in WeChat logs the user in ----
+	fresh, _ := cookiejar.New(nil)
+	noRedirect.Jar = fresh
+	r, _ = get("/m")
+	r, _ = get("/m/callback?code=code-o-new&state=" + stateOf(r.Header.Get("Location")))
+	if r.StatusCode != 302 || r.Header.Get("Location") != "/dashboard" {
+		t.Fatalf("one-tap login = %d %s", r.StatusCode, r.Header.Get("Location"))
+	}
+	meReq, _ := http.NewRequest("GET", env.srv.URL+"/api/me", nil)
+	meResp, err := noRedirect.Do(meReq)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var me map[string]any
+	json.NewDecoder(meResp.Body).Decode(&me)
+	meResp.Body.Close()
+	bot, _ := env.db.GetBot(botID)
+	if me["id"] != bot.UserID || me["role"] != "member" {
+		t.Fatalf("logged in as %v, want owner of %s", me, botID)
+	}
+
+	// Outside WeChat /m only explains; unknown state is rejected.
+	req, _ := http.NewRequest("GET", env.srv.URL+"/m", nil)
+	req.Header.Set("User-Agent", "Mozilla/5.0 Chrome")
+	if r, err := noRedirect.Do(req); err != nil || r.StatusCode != 200 {
+		t.Errorf("/m outside WeChat = %v %v", r, err)
+	}
+	if r, _ := get("/m/callback?code=code-o-new&state=deadbeef"); r.StatusCode != 400 {
+		t.Errorf("unknown state = %d", r.StatusCode)
 	}
 }

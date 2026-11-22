@@ -208,6 +208,11 @@ func (s *Server) completeScanLogin(result *provider.BindPollResult, sendEvent fu
 	}
 
 	s.BotManager.StartBot(context.Background(), bot)
+	// Stage 1 → 2: offer the new user an identity-binding link so later
+	// logins are one tap inside WeChat (/m).
+	if isNew {
+		go s.offerIdentityBinding(bot.ID, creds.ILinkUserID)
+	}
 
 	// Login: create session — send token via WS (can't set cookie on WS)
 	sessionToken, _ := auth.CreateSession(s.Store, user.ID)

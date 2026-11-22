@@ -58,6 +58,26 @@ describe("login entry points", () => {
     expect(container.textContent).not.toContain("账号密码");
     expect(container.textContent).toContain("Hi微连");
     expect(container.querySelector('a[href="/admin/login"]')).not.toBeNull();
+    // Two-stage guidance: register by camera scan, bind identity, then one-tap /m.
+    const steps = container.querySelector('[data-testid="onboarding-steps"]')!.textContent!;
+    expect(steps).toContain("扫码注册");
+    expect(steps).toContain("身份绑定");
+    expect(steps).toContain("一键登录");
+    expect(container.textContent).toContain("长按识别无效");
+    expect(container.querySelector('[data-testid="mobile-entry"]')!.textContent).toContain("/m");
+  });
+
+  it("/login inside WeChat offers one-tap login instead of an unscannable QR", async () => {
+    vi.resetModules();
+    const ua = vi
+      .spyOn(window.navigator, "userAgent", "get")
+      .mockReturnValue("Mozilla/5.0 (iPhone) MicroMessenger/8.0.50");
+    const { LoginPage: WeChatLogin } = await import("./login");
+    await act(async () => root.render(<WeChatLogin />));
+    ua.mockRestore();
+    expect(container.querySelector('[data-testid="scan-login"]')).toBeNull();
+    expect(container.querySelector('a[href="/m"]')?.textContent).toContain("微信一键登录");
+    expect(container.textContent).toContain("在电脑上打开");
   });
 
   it("/admin/login has password + passkey and no QR", async () => {

@@ -24,9 +24,17 @@ type bindEntry struct {
 	result *provider.BindPollResult // cached terminal result for reconnecting clients
 }
 
+// BindBaseURL overrides the iLink endpoint for QR binding (tests point it at
+// the mock server). Empty means the production endpoint.
+var BindBaseURL string
+
 // StartBind initiates a QR code bind flow.
 func StartBind(ctx context.Context, userID string) (sessionID, qrURL string, err error) {
-	client := ilinkSDK.NewClient("")
+	var opts []ilinkSDK.Option
+	if BindBaseURL != "" {
+		opts = append(opts, ilinkSDK.WithBaseURL(BindBaseURL))
+	}
+	client := ilinkSDK.NewClient("", opts...)
 	qr, err := client.FetchQRCode(ctx)
 	if err != nil {
 		return "", "", fmt.Errorf("fetch qr: %w", err)

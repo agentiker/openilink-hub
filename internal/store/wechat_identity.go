@@ -34,6 +34,9 @@ type WeChatIdentityStore interface {
 	// ListWeChatIdentities returns all identities bound through a bot, keyed by ilink user id.
 	ListWeChatIdentities(botID string) (map[string]*WeChatIdentity, error)
 	DeleteWeChatIdentity(botID, ilinkUserID string) error
+	// FindWeChatIdentities returns identities matching (appID, openID), or
+	// unionID when non-empty, across all bots, most recently updated first.
+	FindWeChatIdentities(appID, openID, unionID string) ([]WeChatIdentity, error)
 
 	// CreateWeChatBindLink stores a short link; it fails if the code exists.
 	CreateWeChatBindLink(l *WeChatBindLink) error

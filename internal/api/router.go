@@ -102,6 +102,10 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /wx/bind", s.handleWeChatBindStart)
 	mux.HandleFunc("GET /wx/bind/callback", s.handleWeChatBindCallback)
 
+	// --- Mobile one-tap login (服务号网页授权, public) ---
+	mux.HandleFunc("GET /m", s.handleMobileLogin)
+	mux.HandleFunc("GET /m/callback", s.handleMobileLoginCallback)
+
 	// --- GitHub webhook (public, token-authenticated) ---
 	mux.HandleFunc("POST /api/hooks/github", s.handleGitHubWebhook)
 

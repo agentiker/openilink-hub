@@ -47,6 +47,21 @@ func TestWeChatIdentity(t *testing.T, s store.Store) {
 		t.Errorf("after delete = %d", len(all))
 	}
 
+	// Lookup by openid / unionid across bots.
+	s.UpsertWeChatIdentity(&store.WeChatIdentity{BotID: other.ID, ILinkUserID: "u9@im.wechat", AppID: "wxapp", OpenID: "o9", UnionID: "un-shared"})
+	if got, err := s.FindWeChatIdentities("wxapp", "o1", ""); err != nil || len(got) != 1 || got[0].BotID != b.ID {
+		t.Errorf("find by openid = %+v %v", got, err)
+	}
+	if got, _ := s.FindWeChatIdentities("otherapp", "o1", ""); len(got) != 0 {
+		t.Errorf("openid must be scoped to app_id, got %+v", got)
+	}
+	if got, _ := s.FindWeChatIdentities("x", "nope", "un-shared"); len(got) != 1 || got[0].OpenID != "o9" {
+		t.Errorf("find by unionid = %+v", got)
+	}
+	if got, _ := s.FindWeChatIdentities("x", "nope", ""); len(got) != 0 {
+		t.Errorf("empty unionid must not match, got %+v", got)
+	}
+
 	// Short bind links.
 	if l, err := s.GetWeChatBindLink("nope"); err != nil || l != nil {
 		t.Fatalf("unknown code: %+v %v", l, err)

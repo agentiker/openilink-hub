@@ -41,11 +41,16 @@ func TestWxStateStore(t *testing.T) {
 	if len(k) != 32 {
 		t.Errorf("state len = %d (WeChat allows ≤128)", len(k))
 	}
-	if c, ok := st.take(k); !ok || c.BotID != "b" {
+	if c, ok := st.take(k, stateBind); !ok || c.BotID != "b" {
 		t.Fatal("take failed")
 	}
-	if _, ok := st.take(k); ok {
+	if _, ok := st.take(k, stateBind); ok {
 		t.Error("state must be single-use")
+	}
+	// A login state cannot be used to complete a binding (and vice versa).
+	lk := st.putState(wxState{purpose: stateLogin})
+	if _, ok := st.take(lk, stateBind); ok {
+		t.Error("login state accepted for binding")
 	}
 }
 

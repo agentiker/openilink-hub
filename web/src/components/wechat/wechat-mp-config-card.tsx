@@ -1,5 +1,6 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import QRCode from "qrcode";
 import { api, type WeChatMPConfig } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
@@ -9,6 +10,49 @@ import { Switch } from "@/components/ui/switch";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
 const KEY = ["admin", "wechat-mp-config"] as const;
+
+/**
+ * The fixed mobile entry: a permanent QR code / 服务号 menu link to /m.
+ * Opening it in WeChat logs bound users in with one tap (服务号网页授权).
+ */
+export function MobileEntryPanel({ origin }: { origin: string }) {
+  const url = `${origin.replace(/\/$/, "")}/m`;
+  const ref = useRef<HTMLCanvasElement>(null);
+  useEffect(() => {
+    if (ref.current) QRCode.toCanvas(ref.current, url, { width: 132, margin: 1 });
+  }, [url]);
+  async function download() {
+    const href = await QRCode.toDataURL(url, { width: 1024, margin: 2 });
+    const a = document.createElement("a");
+    a.href = href;
+    a.download = "hi-weilian-login-qr.png";
+    a.click();
+  }
+  return (
+    <div
+      className="flex gap-4 items-start p-3 rounded-xl bg-muted/20 border border-border/50"
+      data-testid="mobile-entry-panel"
+    >
+      <div className="rounded-lg bg-white p-1 shrink-0">
+        <canvas ref={ref} className="block" />
+      </div>
+      <div className="min-w-0 space-y-1.5 text-xs text-muted-foreground">
+        <p className="text-sm font-medium text-foreground">手机一键登录入口（固定）</p>
+        <p>
+          入口地址：<code className="font-mono">{url}</code>
+        </p>
+        <p>二维码永久有效，可打印、张贴；已完成身份绑定的用户用微信扫码即直接登录。</p>
+        <p>
+          也可配置为服务号菜单：公众平台「内容与互动 →
+          自定义菜单」，菜单内容选「跳转网页」，填上面的入口地址。
+        </p>
+        <Button size="sm" variant="outline" onClick={download}>
+          下载二维码
+        </Button>
+      </div>
+    </div>
+  );
+}
 
 /** Admin: 微信服务号 used for 网页授权 identity binding. */
 export function WeChatMPConfigCard() {
@@ -107,6 +151,9 @@ export function WeChatMPConfigCard() {
             onCheckedChange={(v) => setForm({ ...form, userinfo: v })}
           />
         </div>
+        {data?.enabled && data.callback_url ? (
+          <MobileEntryPanel origin={new URL(data.callback_url).origin} />
+        ) : null}
         {data?.callback_url ? (
           <p className="text-xs text-muted-foreground">
             授权回调地址：<code className="font-mono">{data.callback_url}</code>

@@ -7,12 +7,68 @@ import { Button } from "../components/ui/button";
 import { AuthShell } from "@/components/auth/auth-shell";
 import { useInfo } from "@/hooks/use-auth";
 
-function QrCanvas({ url }: { url: string }) {
+function QrCanvas({ url, size = 224 }: { url: string; size?: number }) {
   const ref = useRef<HTMLCanvasElement>(null);
   useEffect(() => {
-    if (url && ref.current) QRCode.toCanvas(ref.current, url, { width: 224, margin: 0 });
-  }, [url]);
+    if (url && ref.current) QRCode.toCanvas(ref.current, url, { width: size, margin: 0 });
+  }, [url, size]);
   return <canvas ref={ref} className="block rounded-lg" />;
+}
+
+/** Opened inside WeChat on the phone: the ClawBot QR cannot be scanned from here. */
+const inWeChat = typeof navigator !== "undefined" && /MicroMessenger/i.test(navigator.userAgent);
+
+/**
+ * Two-stage onboarding guidance.
+ *
+ * iLink only accepts a camera scan of the ClawBot QR shown on another screen
+ * (tapping the link or long-pressing the QR inside WeChat does nothing), so
+ * registration happens here; later logins are one tap inside WeChat via /m
+ * (服务号网页授权), once the identity-binding link from the bot was opened.
+ */
+function OnboardingSteps() {
+  return (
+    <ol className="w-full space-y-2 text-xs text-muted-foreground" data-testid="onboarding-steps">
+      {[
+        [
+          "扫码注册",
+          "用手机微信的「扫一扫」扫描上方二维码，在 ClawBot 中确认，自动创建账号并绑定 Bot。",
+        ],
+        ["身份绑定", "在微信里给 Bot 发一句话，点开 Bot 发来的「身份绑定」链接并授权。"],
+        ["一键登录", "以后在手机微信中打开下方入口，无需再扫码。"],
+      ].map(([t, d], i) => (
+        <li key={t} className="flex gap-2.5">
+          <span className="flex size-5 shrink-0 items-center justify-center rounded-full bg-primary/10 text-[10px] font-bold text-primary">
+            {i + 1}
+          </span>
+          <span>
+            <b className="text-foreground">{t}</b>：{d}
+          </span>
+        </li>
+      ))}
+    </ol>
+  );
+}
+
+function MobileEntry() {
+  const url = `${window.location.origin}/m`;
+  return (
+    <div
+      className="w-full rounded-xl border border-border/60 bg-muted/20 p-3 flex items-center gap-3"
+      data-testid="mobile-entry"
+    >
+      <div className="rounded-lg bg-white p-1.5 shrink-0">
+        <QrCanvas url={url} size={72} />
+      </div>
+      <div className="min-w-0 space-y-1">
+        <p className="text-sm font-semibold">已注册？手机微信一键登录</p>
+        <p className="text-xs text-muted-foreground leading-relaxed">
+          用微信扫这个码，在手机上直接登录；也可以在微信里收藏{" "}
+          <span className="font-mono">{window.location.host}/m</span>
+        </p>
+      </div>
+    </div>
+  );
 }
 
 /**
@@ -120,9 +176,29 @@ export function LoginPage() {
     };
   }
 
+  // Inside WeChat: the user already has an account (or needs another screen).
+  if (inWeChat) {
+    return (
+      <AuthShell subtitle="手机微信一键登录">
+        <div className="flex flex-col items-center gap-5 text-center" data-testid="wechat-entry">
+          <Button asChild className="w-full h-11 font-bold">
+            <a href="/m">微信一键登录</a>
+          </Button>
+          <p className="text-xs text-muted-foreground leading-relaxed">
+            适用于已完成注册和身份绑定的用户。
+            <br />
+            首次使用需要注册：请在电脑上打开{" "}
+            <span className="font-mono">{window.location.host}/login</span>
+            ，再用手机微信「扫一扫」扫描页面上的二维码（在微信里长按识别或点击链接无法完成注册）。
+          </p>
+        </div>
+      </AuthShell>
+    );
+  }
+
   return (
     <AuthShell
-      subtitle="微信扫码，一键登录"
+      subtitle="首次使用请扫码注册，已注册可在手机微信一键登录"
       below={
         <p className="mt-6 text-center text-xs text-muted-foreground/70">
           管理员请从{" "}
@@ -164,14 +240,15 @@ export function LoginPage() {
           </div>
           <p className="text-xs text-muted-foreground max-w-[260px] mx-auto leading-relaxed">
             {scanStatus === "scanned"
-              ? "请在手机上确认登录"
-              : !infoData
-                ? "打开微信，扫描二维码即可登录。"
-                : registrationEnabled
-                  ? "打开微信，扫描二维码即可登录。首次使用会自动创建账号并绑定 Bot。"
-                  : "打开微信，扫描二维码即可登录。仅限已绑定的微信账号。"}
+              ? "请在手机微信的 ClawBot 中点击确认"
+              : !infoData || registrationEnabled
+                ? "请用手机微信「扫一扫」扫描（长按识别无效）。首次使用会自动创建账号并绑定 Bot。"
+                : "请用手机微信「扫一扫」扫描。当前仅限已注册的微信账号，新用户暂不开放。"}
           </p>
         </div>
+
+        <OnboardingSteps />
+        <MobileEntry />
       </div>
     </AuthShell>
   );

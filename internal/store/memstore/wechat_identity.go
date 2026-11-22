@@ -2,6 +2,7 @@ package memstore
 
 import (
 	"errors"
+	"sort"
 	"time"
 
 	"github.com/openilink/openilink-hub/internal/store"
@@ -99,4 +100,18 @@ func (s *Store) PruneWeChatBindLinks(before int64) error {
 		}
 	}
 	return nil
+}
+
+func (s *Store) FindWeChatIdentities(appID, openID, unionID string) ([]store.WeChatIdentity, error) {
+	q := s.qs()
+	q.mu.Lock()
+	defer q.mu.Unlock()
+	var out []store.WeChatIdentity
+	for _, id := range q.identities {
+		if (id.AppID == appID && id.OpenID == openID) || (unionID != "" && id.UnionID == unionID) {
+			out = append(out, *id)
+		}
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].UpdatedAt > out[j].UpdatedAt })
+	return out, nil
 }
