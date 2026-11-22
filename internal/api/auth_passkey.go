@@ -39,12 +39,11 @@ func (s *Server) handleRegisterBegin(w http.ResponseWriter, r *http.Request) {
 		displayName = req.Username
 	}
 
-	// First user becomes admin; subsequent registrations respect the registration gate
-	count, _ := s.Store.UserCount()
-	if count > 0 && !s.registrationEnabled() {
-		jsonError(w, "registration is disabled", http.StatusForbidden)
+	// Self-registration only bootstraps the first superadmin.
+	if s.selfRegistrationBlocked(w) {
 		return
 	}
+	count, _ := s.Store.UserCount()
 
 	role := store.RoleMember
 	if count == 0 {
@@ -202,6 +201,21 @@ func (s *Server) handleLoginFinish(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		userID = user.ID
+	}
+
+	// Passkey login is the administrator entry (/admin/login).
+	u, err := s.Store.GetUserByID(userID)
+	if err != nil {
+		jsonError(w, "user not found", http.StatusUnauthorized)
+		return
+	}
+	if u.Status != store.StatusActive {
+		jsonError(w, "account disabled", http.StatusForbidden)
+		return
+	}
+	if !adminLoginAllowed(u) {
+		jsonError(w, msgScanOnly, http.StatusForbidden)
+		return
 	}
 
 	token, _ := auth.CreateSession(s.Store, userID)

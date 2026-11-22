@@ -436,7 +436,7 @@ function RegistrationConfigCard() {
     try {
       const newEnabled = regConfig?.enabled === "true" ? "false" : "true";
       await setRegConfigMutation.mutateAsync({ enabled: newEnabled });
-      toast({ title: newEnabled === "true" ? "已开放注册" : "已关闭注册" });
+      toast({ title: newEnabled === "true" ? "已允许新用户扫码加入" : "已关闭新用户扫码加入" });
     } catch (e: any) {
       toast({ variant: "destructive", title: "保存失败", description: e.message });
     }
@@ -451,9 +451,11 @@ function RegistrationConfigCard() {
               <UserPlus className="h-5 w-5" />
             </div>
             <div>
-              <p className="text-sm font-bold">开放注册</p>
+              <p className="text-sm font-bold">允许新微信用户扫码加入</p>
               <p className="text-xs text-muted-foreground">
-                关闭后，新用户无法通过密码注册、扫码登录或 OAuth 创建账号。管理员仍可手动创建用户。
+                开启后，未注册过的微信用户在 /login 扫码即可自动创建账号并绑定
+                Bot；关闭后仅已有账号可扫码登录。
+                普通用户只能扫码登录，账号密码注册始终关闭；管理员账号由管理员在「用户管理」中创建。
               </p>
             </div>
           </div>

@@ -95,9 +95,10 @@ async function request<T>(url: string, options?: RequestInit): Promise<T> {
   });
   if (res.status === 401) {
     const path = window.location.pathname;
-    const isPublic = path === "/";
+    const isPublic = path === "/" || path === "/login" || path === "/admin/login";
     if (!isPublic) {
-      window.location.href = "/login";
+      // Admin pages send administrators back to their own login.
+      window.location.href = path.startsWith("/dashboard/admin") ? "/admin/login" : "/login";
     }
     throw new Error("unauthorized");
   }

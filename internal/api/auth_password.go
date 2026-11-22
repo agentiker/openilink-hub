@@ -34,12 +34,12 @@ func (s *Server) handlePasswordRegister(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	// First user becomes admin; also check registration gate
-	count, _ := s.Store.UserCount()
-	if count > 0 && !s.registrationEnabled() {
-		jsonError(w, "registration is disabled", http.StatusForbidden)
+	// Self-registration only bootstraps the first superadmin; members use
+	// WeChat scan login, other administrators are created in the admin panel.
+	if s.selfRegistrationBlocked(w) {
 		return
 	}
+	count, _ := s.Store.UserCount()
 
 	// Check if username taken
 	if _, err := s.Store.GetUserByUsername(req.Username); err == nil {
@@ -92,6 +92,11 @@ func (s *Server) handlePasswordLogin(w http.ResponseWriter, r *http.Request) {
 	}
 	if user.PasswordHash == "" || !auth.CheckPassword(req.Password, user.PasswordHash) {
 		jsonError(w, "invalid credentials", http.StatusUnauthorized)
+		return
+	}
+	// Password login is the administrator entry (/admin/login).
+	if !adminLoginAllowed(user) {
+		jsonError(w, msgScanOnly, http.StatusForbidden)
 		return
 	}
 

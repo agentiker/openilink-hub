@@ -12,6 +12,7 @@ import (
 	"net/http"
 	"net/http/cookiejar"
 	"net/http/httptest"
+	"net/url"
 	"os"
 	"strings"
 	"sync"
@@ -206,12 +207,37 @@ func (e *testEnv) put(path string, body any) (int, map[string]any) {
 	return resp.StatusCode, result
 }
 
+// register creates a user and logs this client in as them.
+//
+// Self-registration only bootstraps the first superadmin; afterwards
+// members exist through WeChat scan login and get a session from it. Tests
+// model that by creating the member directly and attaching a session.
 func (e *testEnv) register(username, password string) {
 	e.t.Helper()
-	code, result := e.postCode("/api/auth/register", map[string]string{"username": username, "password": password})
-	if code != 200 {
-		e.t.Fatalf("register %s failed: %d %v", username, code, result["error"])
+	if n, _ := e.db.UserCount(); n == 0 {
+		code, result := e.postCode("/api/auth/register", map[string]string{"username": username, "password": password})
+		if code != 200 {
+			e.t.Fatalf("register %s failed: %d %v", username, code, result["error"])
+		}
+		return
 	}
+	u, err := e.db.CreateUserFull(username, "", username, auth.HashPassword(password), store.RoleMember)
+	if err != nil {
+		e.t.Fatalf("create member %s: %v", username, err)
+	}
+	e.loginAs(u.ID)
+}
+
+// loginAs attaches a fresh session for userID to this client (what WeChat
+// scan login does for members).
+func (e *testEnv) loginAs(userID string) {
+	e.t.Helper()
+	token, err := auth.CreateSession(e.db, userID)
+	if err != nil {
+		e.t.Fatalf("create session: %v", err)
+	}
+	u, _ := url.Parse(e.srv.URL)
+	e.client.Jar.SetCookies(u, []*http.Cookie{{Name: "session", Value: token, Path: "/"}})
 }
 
 func (e *testEnv) login(username, password string) {
@@ -370,11 +396,33 @@ func TestRegisterAndLogin(t *testing.T) {
 	code, _ = env.postCode("/api/auth/login", map[string]string{"username": "admin1", "password": "wrong"})
 	assertCode(t, "wrong password", code, 401)
 
-	// Second user → member
+	// Self-registration is closed once a user exists (members scan-login).
+	env.post("/api/auth/logout", nil)
+	code, r := env.postCode("/api/auth/register", map[string]string{"username": "member1", "password": "password123"})
+	if code != 403 {
+		t.Errorf("second self-registration = %d %v, want 403", code, r)
+	}
+
+	// Members cannot use the administrator password login.
 	env.register("member1", "password123")
 	_, me = env.get("/api/me")
 	if me["role"] != "member" {
-		t.Errorf("second user role = %v, want member", me["role"])
+		t.Errorf("member role = %v", me["role"])
+	}
+	env.post("/api/auth/logout", nil)
+	code, r = env.postCode("/api/auth/login", map[string]string{"username": "member1", "password": "password123"})
+	if code != 403 || !strings.Contains(fmt.Sprint(r["error"]), "扫码") {
+		t.Errorf("member password login = %d %v, want 403 scan-only", code, r)
+	}
+	// Passkey self-registration is closed too.
+	if code, _ := env.postCode("/api/auth/passkey/register/begin", map[string]string{"username": "pkmember"}); code != 403 {
+		t.Errorf("passkey self-registration = %d, want 403", code)
+	}
+
+	// An admin still logs in with password.
+	env.login("admin1", "password123")
+	if code, me := env.get("/api/me"); code != 200 || me["role"] != "superadmin" {
+		t.Errorf("admin relogin = %d %v", code, me)
 	}
 }
 
@@ -390,11 +438,11 @@ func TestRegisterValidation(t *testing.T) {
 	code, _ = env.postCode("/api/auth/register", map[string]string{"username": "u", "password": "short"})
 	assertCode(t, "short password", code, 400)
 
-	// Duplicate username
+	// After the first (bootstrap) user, self-registration is closed.
 	env.register("taken", "password123")
 	env.post("/api/auth/logout", nil)
-	code, _ = env.postCode("/api/auth/register", map[string]string{"username": "taken", "password": "password123"})
-	assertCode(t, "duplicate username", code, 409)
+	code, _ = env.postCode("/api/auth/register", map[string]string{"username": "another", "password": "password123"})
+	assertCode(t, "registration after bootstrap", code, 403)
 }
 
 func TestProfileUpdate(t *testing.T) {

@@ -3,10 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { useUser } from "@/hooks/use-auth";
 import { useBots } from "@/hooks/use-bots";
 import { useAuthStore } from "@/stores/auth-store";
-import logoBlack from "@/assets/logo-black.svg";
-import logoWhite from "@/assets/logo-white.svg";
-import iconBlack from "@/assets/icon-black.svg";
-import iconWhite from "@/assets/icon-white.svg";
+import { HiLogo, HiLogoMark } from "@/components/brand/hi-logo";
 import {
   LogOut,
   Github,
@@ -73,13 +70,7 @@ import * as React from "react";
 
 function SidebarLogo() {
   const { open } = useSidebar();
-  const { resolvedTheme } = useTheme();
-  const isDark = resolvedTheme === "dark";
-  return open ? (
-    <img src={isDark ? logoWhite : logoBlack} alt="OpeniLink" className="h-7 w-auto" />
-  ) : (
-    <img src={isDark ? iconWhite : iconBlack} alt="OpeniLink" className="size-7" />
-  );
+  return open ? <HiLogo className="text-base" /> : <HiLogoMark className="size-7" />;
 }
 
 const BREADCRUMB_LABELS: Record<string, string> = {
@@ -222,7 +213,7 @@ function LayoutHeader() {
             <TooltipTrigger asChild>
               <Button variant="ghost" size="icon" className="h-9 w-9" asChild>
                 <a
-                  href="https://github.com/openilink/openilink-hub"
+                  href="https://github.com/agentiker/openilink-hub"
                   target="_blank"
                   rel="noopener noreferrer"
                 >
@@ -280,7 +271,10 @@ export function Layout() {
   const [version, setVersion] = useState("");
 
   useEffect(() => {
-    if (isError) navigate("/login", { replace: true });
+    if (isError)
+      navigate(location.pathname.startsWith("/dashboard/admin") ? "/admin/login" : "/login", {
+        replace: true,
+      });
   }, [isError, navigate]);
 
   useEffect(() => {
@@ -513,8 +507,9 @@ export function Layout() {
                 >
                   <DropdownMenuItem
                     onClick={async () => {
+                      const wasAdmin = isAdmin;
                       await useAuthStore.getState().logout();
-                      navigate("/login");
+                      navigate(wasAdmin ? "/admin/login" : "/login");
                     }}
                     className="cursor-pointer font-medium text-destructive focus:bg-destructive/10 focus:text-destructive"
                   >

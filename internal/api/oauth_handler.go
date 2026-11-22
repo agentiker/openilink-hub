@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log/slog"
@@ -270,8 +271,8 @@ func (s *Server) completeOAuthFlow(w http.ResponseWriter, r *http.Request, entry
 	// Login mode: find or create user
 	user, err := s.findOrCreateOAuthUser(provider, providerID, username, email, avatarURL)
 	if err != nil {
-		if err.Error() == "registration is disabled" {
-			http.Redirect(w, r, "/login?error=registration_disabled", http.StatusFound)
+		if errors.Is(err, errAdminOnlyLogin) {
+			http.Redirect(w, r, "/admin/login?error=admin_only", http.StatusFound)
 			return
 		}
 		slog.Error("oauth user creation failed", "provider", provider, "err", err)
@@ -281,6 +282,10 @@ func (s *Server) completeOAuthFlow(w http.ResponseWriter, r *http.Request, entry
 
 	if user.Status != store.StatusActive {
 		jsonError(w, "account disabled", http.StatusForbidden)
+		return
+	}
+	if !adminLoginAllowed(user) {
+		http.Redirect(w, r, "/admin/login?error=admin_only", http.StatusFound)
 		return
 	}
 
@@ -400,10 +405,11 @@ func (s *Server) findOrCreateOAuthUser(provider, providerID, username, email, av
 
 	// Create new user if not found
 	if user == nil {
-		// Check registration gate (always allow first user for bootstrap)
+		// Only the very first user (bootstrap superadmin) may be created here;
+		// members sign in by WeChat scan.
 		count, _ := s.Store.UserCount()
-		if count > 0 && !s.registrationEnabled() {
-			return nil, fmt.Errorf("registration is disabled")
+		if count > 0 {
+			return nil, errAdminOnlyLogin
 		}
 		displayName := username
 		role := store.RoleMember
@@ -418,6 +424,11 @@ func (s *Server) findOrCreateOAuthUser(provider, providerID, username, email, av
 		if err != nil {
 			return nil, fmt.Errorf("create user: %w", err)
 		}
+	}
+
+	// OAuth/OIDC login is an administrator entry: never link it to a member.
+	if !adminLoginAllowed(user) {
+		return nil, errAdminOnlyLogin
 	}
 
 	// Link OAuth account

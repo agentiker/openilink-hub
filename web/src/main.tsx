@@ -7,6 +7,7 @@ import { queryClient } from "./lib/query-client";
 import "./index.css";
 import { HomePage } from "./pages/home";
 import { LoginPage } from "./pages/login";
+import { AdminLoginPage } from "./pages/admin-login";
 import { Layout } from "./components/layout";
 import { BotsPage } from "./pages/bots";
 import { BotDetailPage } from "./pages/bot-detail";
@@ -52,6 +53,7 @@ createRoot(document.getElementById("root")!).render(
                   {/* Public Entry */}
                   <Route path="/" element={<HomePage />} />
                   <Route path="/login" element={<LoginPage />} />
+                  <Route path="/admin/login" element={<AdminLoginPage />} />
 
                   {/* Main Application Shell */}
                   <Route path="/dashboard" element={<Layout />}>
