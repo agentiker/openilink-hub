@@ -57,7 +57,8 @@ describe("login entry points", () => {
     expect(container.textContent).not.toContain("通行密钥");
     expect(container.textContent).not.toContain("账号密码");
     expect(container.textContent).toContain("Hi微连");
-    expect(container.querySelector('a[href="/admin/login"]')).not.toBeNull();
+    // The admin entry is deliberately not advertised on public pages.
+    expect(container.querySelector('a[href="/admin/login"]')).toBeNull();
     // Two-stage guidance: register by camera scan, bind identity, then one-tap /m.
     const steps = container.querySelector('[data-testid="onboarding-steps"]')!.textContent!;
     expect(steps).toContain("扫码注册");

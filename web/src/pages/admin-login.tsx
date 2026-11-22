@@ -47,7 +47,13 @@ export function AdminLoginPage() {
       await api.login(username, password);
       navigate("/dashboard");
     } catch (err: any) {
-      setError(err.message === "invalid credentials" ? "用户名或密码错误" : err.message);
+      setError(
+        err.message === "invalid credentials"
+          ? "用户名或密码错误"
+          : err.message === "too many failed attempts, try again later"
+            ? "失败次数过多，请 15 分钟后再试"
+            : err.message,
+      );
     }
     setLoading(false);
   }

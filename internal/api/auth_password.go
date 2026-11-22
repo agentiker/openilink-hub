@@ -3,6 +3,7 @@ package api
 import (
 	"encoding/json"
 	"net/http"
+	"strconv"
 
 	"github.com/openilink/openilink-hub/internal/auth"
 	"github.com/openilink/openilink-hub/internal/store"
@@ -81,8 +82,16 @@ func (s *Server) handlePasswordLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	ip := clientIP(r)
+	if locked, wait := adminLoginThrottle.blocked(ip, req.Username); locked {
+		w.Header().Set("Retry-After", strconv.Itoa(int(wait.Seconds())+1))
+		jsonError(w, "too many failed attempts, try again later", http.StatusTooManyRequests)
+		return
+	}
+
 	user, err := s.Store.GetUserByUsername(req.Username)
 	if err != nil {
+		adminLoginThrottle.fail(ip, req.Username)
 		jsonError(w, "invalid credentials", http.StatusUnauthorized)
 		return
 	}
@@ -91,9 +100,11 @@ func (s *Server) handlePasswordLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if user.PasswordHash == "" || !auth.CheckPassword(req.Password, user.PasswordHash) {
+		adminLoginThrottle.fail(ip, req.Username)
 		jsonError(w, "invalid credentials", http.StatusUnauthorized)
 		return
 	}
+	adminLoginThrottle.succeed(ip, req.Username)
 	// Password login is the administrator entry (/admin/login).
 	if !adminLoginAllowed(user) {
 		jsonError(w, msgScanOnly, http.StatusForbidden)

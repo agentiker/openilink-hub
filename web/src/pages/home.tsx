@@ -80,9 +80,6 @@ export function HomePage() {
             <Link to="/m" className="hover:text-foreground">
               手机一键登录
             </Link>
-            <Link to="/admin/login" className="hover:text-foreground">
-              管理员入口
-            </Link>
           </div>
         </div>
       </footer>
@@ -109,12 +106,6 @@ function SiteNav({ loggedIn }: { loggedIn: boolean }) {
           </a>
         </div>
         <div className="ml-auto flex items-center gap-2">
-          <Link
-            to="/admin/login"
-            className="hidden px-3 text-sm text-muted-foreground transition-colors hover:text-foreground sm:block"
-          >
-            管理员入口
-          </Link>
           {loggedIn ? (
             <PrimaryLink to="/dashboard" small>
               控制台

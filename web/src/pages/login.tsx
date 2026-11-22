@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Loader2, RotateCw, ScanLine, Smartphone } from "lucide-react";
-import { useNavigate, Link } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import QRCode from "qrcode";
 
 import { Button } from "../components/ui/button";
@@ -202,21 +202,7 @@ export function LoginPage() {
   }
 
   return (
-    <AuthShell
-      subtitle="首次使用请扫码注册，已注册可在手机微信一键登录"
-      below={
-        <p className="mt-6 text-center text-xs text-muted-foreground">
-          管理员请从{" "}
-          <Link
-            to="/admin/login"
-            className="text-foreground underline underline-offset-4 hover:no-underline"
-          >
-            管理员入口
-          </Link>{" "}
-          登录
-        </p>
-      }
-    >
+    <AuthShell subtitle="首次使用请扫码注册，已注册可在手机微信一键登录">
       <div className="flex flex-col items-center gap-6" data-testid="scan-login">
         <div className="flex size-[232px] items-center justify-center rounded-lg border border-border bg-white p-3">
           {qrUrl ? (
