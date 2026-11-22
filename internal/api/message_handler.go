@@ -15,7 +15,7 @@ func (s *Server) handleRetryMedia(w http.ResponseWriter, r *http.Request) {
 	userID := auth.UserIDFromContext(r.Context())
 
 	bot, err := s.Store.GetBot(botID)
-	if err != nil || bot.UserID != userID {
+	if err != nil || !s.canManageBot(userID, bot) {
 		jsonError(w, "not found", http.StatusNotFound)
 		return
 	}
@@ -45,7 +45,7 @@ func (s *Server) handleListMessages(w http.ResponseWriter, r *http.Request) {
 	botID := r.PathValue("id")
 
 	bot, err := s.Store.GetBot(botID)
-	if err != nil || bot.UserID != userID {
+	if err != nil || !s.canManageBot(userID, bot) {
 		jsonError(w, "not found", http.StatusNotFound)
 		return
 	}
@@ -125,7 +125,7 @@ func (s *Server) handleWebhookLogs(w http.ResponseWriter, r *http.Request) {
 	botID := r.PathValue("id")
 
 	bot, err := s.Store.GetBot(botID)
-	if err != nil || bot.UserID != userID {
+	if err != nil || !s.canManageBot(userID, bot) {
 		jsonError(w, "not found", http.StatusNotFound)
 		return
 	}
@@ -157,7 +157,7 @@ func (s *Server) handleListTraces(w http.ResponseWriter, r *http.Request) {
 	botID := r.PathValue("id")
 
 	bot, err := s.Store.GetBot(botID)
-	if err != nil || bot.UserID != userID {
+	if err != nil || !s.canManageBot(userID, bot) {
 		jsonError(w, "not found", http.StatusNotFound)
 		return
 	}
@@ -188,7 +188,7 @@ func (s *Server) handleGetTrace(w http.ResponseWriter, r *http.Request) {
 	botID := r.PathValue("id")
 
 	bot, err := s.Store.GetBot(botID)
-	if err != nil || bot.UserID != userID {
+	if err != nil || !s.canManageBot(userID, bot) {
 		jsonError(w, "not found", http.StatusNotFound)
 		return
 	}

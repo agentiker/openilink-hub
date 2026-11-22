@@ -17,6 +17,7 @@ type quotaState struct {
 	seq    int64
 
 	identities map[string]*store.WeChatIdentity // "bot\x00ilink_user_id"
+	bindLinks  map[string]*store.WeChatBindLink
 }
 
 func (s *Store) qs() *quotaState {

@@ -44,7 +44,7 @@ func (s *Server) handleChannelMedia(w http.ResponseWriter, r *http.Request) {
 		if cookie, err := r.Cookie("session"); err == nil {
 			if uid, err := auth.ValidateSession(s.Store, cookie.Value); err == nil && uid != "" {
 				b, err := s.Store.GetBot(botID)
-				if err != nil || b.UserID != uid {
+				if err != nil || !s.canManageBot(uid, b) {
 					http.Error(w, "unauthorized", http.StatusUnauthorized)
 					return
 				}

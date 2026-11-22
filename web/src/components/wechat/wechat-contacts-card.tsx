@@ -5,6 +5,7 @@ import { api, type BotContact } from "@/lib/api";
 import { queryKeys } from "@/lib/query-keys";
 import { useToast } from "@/hooks/use-toast";
 import { useBotContacts } from "@/hooks/use-bots";
+import { isAdminRole, useAuthStore } from "@/stores/auth-store";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
@@ -23,6 +24,8 @@ export function WeChatContactsCard({ botId }: { botId: string }) {
   const qc = useQueryClient();
   const [busy, setBusy] = useState<string>();
   const { data: contacts = [], isLoading } = useBotContacts(botId);
+  // Only platform administrators may send bind links or unbind identities.
+  const isAdmin = useAuthStore((s) => isAdminRole(s.user?.role));
 
   async function sendLink(c: BotContact) {
     setBusy(c.user_id);
@@ -59,7 +62,9 @@ export function WeChatContactsCard({ botId }: { botId: string }) {
       <CardHeader>
         <CardTitle className="text-sm">联系人</CardTitle>
         <CardDescription>
-          iLink 只提供匿名 ID。发送绑定链接，对方在微信中授权后可显示真实昵称和头像。
+          {isAdmin
+            ? "iLink 只提供匿名 ID。发送绑定链接，对方在微信中授权后可显示真实昵称和头像。"
+            : "已完成微信身份绑定的联系人会显示真实昵称和头像（绑定由平台管理员发起）。"}
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-2">
@@ -98,7 +103,7 @@ export function WeChatContactsCard({ botId }: { botId: string }) {
                   </p>
                 </div>
               </div>
-              {c.wechat ? (
+              {!isAdmin ? null : c.wechat ? (
                 <Button
                   size="sm"
                   variant="ghost"

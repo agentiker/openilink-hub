@@ -1,6 +1,7 @@
 package memstore
 
 import (
+	"errors"
 	"time"
 
 	"github.com/openilink/openilink-hub/internal/store"
@@ -56,5 +57,46 @@ func (s *Store) DeleteWeChatIdentity(botID, ilinkUserID string) error {
 	q.mu.Lock()
 	defer q.mu.Unlock()
 	delete(q.identities, qkey(botID, ilinkUserID))
+	return nil
+}
+
+func (s *Store) CreateWeChatBindLink(l *store.WeChatBindLink) error {
+	q := s.qs()
+	q.mu.Lock()
+	defer q.mu.Unlock()
+	if q.bindLinks == nil {
+		q.bindLinks = map[string]*store.WeChatBindLink{}
+	}
+	if _, ok := q.bindLinks[l.Code]; ok {
+		return errors.New("bind link code exists")
+	}
+	if l.CreatedAt == 0 {
+		l.CreatedAt = time.Now().Unix()
+	}
+	cp := *l
+	q.bindLinks[l.Code] = &cp
+	return nil
+}
+
+func (s *Store) GetWeChatBindLink(code string) (*store.WeChatBindLink, error) {
+	q := s.qs()
+	q.mu.Lock()
+	defer q.mu.Unlock()
+	if l := q.bindLinks[code]; l != nil {
+		cp := *l
+		return &cp, nil
+	}
+	return nil, nil
+}
+
+func (s *Store) PruneWeChatBindLinks(before int64) error {
+	q := s.qs()
+	q.mu.Lock()
+	defer q.mu.Unlock()
+	for k, l := range q.bindLinks {
+		if l.ExpiresAt < before {
+			delete(q.bindLinks, k)
+		}
+	}
 	return nil
 }

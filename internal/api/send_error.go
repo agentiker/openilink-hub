@@ -68,7 +68,7 @@ func (s *Server) handleBotQuota(w http.ResponseWriter, r *http.Request) {
 	botID := r.PathValue("id")
 	userID := auth.UserIDFromContext(r.Context())
 	bot, err := s.Store.GetBot(botID)
-	if err != nil || bot.UserID != userID {
+	if err != nil || !s.canManageBot(userID, bot) {
 		jsonError(w, "not found", http.StatusNotFound)
 		return
 	}

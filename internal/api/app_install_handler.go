@@ -288,7 +288,7 @@ func (s *Server) handleListBotApps(w http.ResponseWriter, r *http.Request) {
 	botID := r.PathValue("id")
 
 	bot, err := s.Store.GetBot(botID)
-	if err != nil || bot.UserID != userID {
+	if err != nil || !s.canManageBot(userID, bot) {
 		jsonError(w, "not found", http.StatusNotFound)
 		return
 	}
@@ -397,7 +397,7 @@ func (s *Server) handleInstallApp(w http.ResponseWriter, r *http.Request) {
 
 	// Verify user owns the bot
 	bot, err := s.Store.GetBot(req.BotID)
-	if err != nil || bot.UserID != userID {
+	if err != nil || !s.canManageBot(userID, bot) {
 		jsonError(w, "bot not found", http.StatusNotFound)
 		return
 	}

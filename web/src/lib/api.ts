@@ -14,6 +14,8 @@ export interface Bot {
   last_reminded_at?: number;
   created_at: number;
   extra?: Record<string, any>;
+  /** Present for administrators, who see every bot on the platform. */
+  owner?: { id: string; username: string; mine: boolean };
 }
 
 /** Real WeChat identity bound through 服务号网页授权. */

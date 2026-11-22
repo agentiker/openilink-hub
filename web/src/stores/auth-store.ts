@@ -20,6 +20,11 @@ interface AuthState {
   logout: () => Promise<void>;
 }
 
+/** Platform administrators manage every bot (incl. sending identity bind links). */
+export function isAdminRole(role?: string): boolean {
+  return role === "admin" || role === "superadmin";
+}
+
 export const useAuthStore = create<AuthState>((set) => ({
   user: null,
   setUser: (user) => set({ user }),

@@ -46,4 +46,30 @@ func TestWeChatIdentity(t *testing.T, s store.Store) {
 	if all, _ := s.ListWeChatIdentities(b.ID); len(all) != 1 {
 		t.Errorf("after delete = %d", len(all))
 	}
+
+	// Short bind links.
+	if l, err := s.GetWeChatBindLink("nope"); err != nil || l != nil {
+		t.Fatalf("unknown code: %+v %v", l, err)
+	}
+	link := &store.WeChatBindLink{Code: "Ab3xK9mQ2z", BotID: b.ID, ILinkUserID: "u1@im.wechat", ExpiresAt: 2000000000}
+	if err := s.CreateWeChatBindLink(link); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.CreateWeChatBindLink(&store.WeChatBindLink{Code: "Ab3xK9mQ2z", BotID: b.ID, ILinkUserID: "x", ExpiresAt: 1}); err == nil {
+		t.Error("duplicate code accepted")
+	}
+	got2, err := s.GetWeChatBindLink("Ab3xK9mQ2z")
+	if err != nil || got2 == nil || got2.ILinkUserID != "u1@im.wechat" || got2.ExpiresAt != 2000000000 || got2.CreatedAt == 0 {
+		t.Fatalf("get link = %+v %v", got2, err)
+	}
+	s.CreateWeChatBindLink(&store.WeChatBindLink{Code: "Old0000000", BotID: b.ID, ILinkUserID: "u", ExpiresAt: 100})
+	if err := s.PruneWeChatBindLinks(1000); err != nil {
+		t.Fatal(err)
+	}
+	if l, _ := s.GetWeChatBindLink("Old0000000"); l != nil {
+		t.Error("expired link not pruned")
+	}
+	if l, _ := s.GetWeChatBindLink("Ab3xK9mQ2z"); l == nil {
+		t.Error("valid link pruned")
+	}
 }

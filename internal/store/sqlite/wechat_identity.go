@@ -54,3 +54,27 @@ func (db *DB) DeleteWeChatIdentity(botID, ilinkUserID string) error {
 	_, err := db.Exec(`DELETE FROM wechat_identities WHERE bot_id = ? AND ilink_user_id = ?`, botID, ilinkUserID)
 	return err
 }
+
+func (db *DB) CreateWeChatBindLink(l *store.WeChatBindLink) error {
+	if l.CreatedAt == 0 {
+		l.CreatedAt = db.now()
+	}
+	_, err := db.Exec(`INSERT INTO wechat_bind_links (code, bot_id, ilink_user_id, expires_at, created_at) VALUES (?, ?, ?, ?, ?)`,
+		l.Code, l.BotID, l.ILinkUserID, l.ExpiresAt, l.CreatedAt)
+	return err
+}
+
+func (db *DB) GetWeChatBindLink(code string) (*store.WeChatBindLink, error) {
+	var l store.WeChatBindLink
+	err := db.QueryRow(`SELECT code, bot_id, ilink_user_id, expires_at, created_at FROM wechat_bind_links WHERE code = ?`, code).
+		Scan(&l.Code, &l.BotID, &l.ILinkUserID, &l.ExpiresAt, &l.CreatedAt)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, nil
+	}
+	return &l, err
+}
+
+func (db *DB) PruneWeChatBindLinks(before int64) error {
+	_, err := db.Exec(`DELETE FROM wechat_bind_links WHERE expires_at < ?`, before)
+	return err
+}

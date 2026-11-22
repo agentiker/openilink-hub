@@ -18,6 +18,11 @@ vi.mock("@/lib/api", () => ({
 }));
 const toast = vi.fn();
 vi.mock("@/hooks/use-toast", () => ({ useToast: () => ({ toast }) }));
+let role = "superadmin";
+vi.mock("@/stores/auth-store", () => ({
+  isAdminRole: (r?: string) => r === "admin" || r === "superadmin",
+  useAuthStore: (sel: any) => sel({ user: { role } }),
+}));
 
 import { WeChatContactsCard, contactName } from "./wechat-contacts-card";
 
@@ -31,6 +36,7 @@ describe("WeChatContactsCard", () => {
     botContacts.mockReset();
     wechatBindLink.mockReset();
     toast.mockReset();
+    role = "superadmin";
   });
   afterEach(() => {
     act(() => root.unmount());
@@ -88,6 +94,33 @@ describe("WeChatContactsCard", () => {
     await act(async () => btn.click());
     expect(wechatBindLink).toHaveBeenCalledWith("bot-1", { recipient: "b@im.wechat", send: true });
     expect(toast).toHaveBeenCalledWith(expect.objectContaining({ title: "绑定链接已发送" }));
+  });
+
+  it("hides bind and unbind for regular members", async () => {
+    role = "member";
+    botContacts.mockResolvedValue([
+      {
+        user_id: "a@im.wechat",
+        last_msg_at: 1,
+        msg_count: 2,
+        wechat: {
+          ilink_user_id: "a@im.wechat",
+          app_id: "wx",
+          openid: "o1",
+          nickname: "张三",
+          updated_at: 1,
+        },
+      },
+      { user_id: "b@im.wechat", last_msg_at: 1, msg_count: 1 },
+    ]);
+    await render();
+    await vi.waitFor(() =>
+      expect(container.querySelectorAll('[data-testid="wechat-contact"]')).toHaveLength(2),
+    );
+    expect(container.textContent).toContain("张三");
+    expect(container.textContent).not.toContain("发送绑定链接");
+    expect(container.textContent).not.toContain("解绑");
+    expect(container.querySelectorAll("button")).toHaveLength(0);
   });
 
   it("contactName falls back to the iLink id", () => {

@@ -40,7 +40,7 @@ func (s *Server) handleAppOAuthAuthorize(w http.ResponseWriter, r *http.Request)
 
 	// Verify the user owns the bot
 	bot, err := s.Store.GetBot(botID)
-	if err != nil || bot.UserID != userID {
+	if err != nil || !s.canManageBot(userID, bot) {
 		jsonError(w, "bot not found", http.StatusNotFound)
 		return
 	}
@@ -180,7 +180,7 @@ func (s *Server) handleAppOAuthSetupRedirect(w http.ResponseWriter, r *http.Requ
 
 	// Verify user owns the bot
 	bot, err := s.Store.GetBot(botID)
-	if err != nil || bot.UserID != userID {
+	if err != nil || !s.canManageBot(userID, bot) {
 		jsonError(w, "bot not found", http.StatusNotFound)
 		return
 	}

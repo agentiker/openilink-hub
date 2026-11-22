@@ -287,7 +287,7 @@ func (s *Server) handleInstallPluginToChannel(w http.ResponseWriter, r *http.Req
 	}
 
 	bot, err := s.Store.GetBot(req.BotID)
-	if err != nil || bot.UserID != userID {
+	if err != nil || !s.canManageBot(userID, bot) {
 		jsonError(w, "bot not found", http.StatusNotFound)
 		return
 	}

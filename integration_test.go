@@ -3336,14 +3336,14 @@ func TestWeChatIdentityBinding(t *testing.T) {
 	code, link := env.postCode("/api/bots/"+botObj.ID+"/wechat/bind-link", map[string]any{"send": true})
 	assertCode(t, "bind-link", code, 200)
 	url, _ := link["url"].(string)
-	if link["sent"] != true || link["recipient"] != owner || !strings.Contains(url, "/wx/bind?t=") {
-		t.Fatalf("bind-link = %v", link)
+	if link["sent"] != true || link["recipient"] != owner || !strings.HasPrefix(url, env.cfg.RPOrigin+"/w/") || len(url) > len(env.cfg.RPOrigin)+14 {
+		t.Fatalf("bind-link = %v (want short /w/{code})", link)
 	}
 	sent := engine.SentMessages()
 	if len(sent) == 0 || !strings.Contains(sent[len(sent)-1].Text, url) {
 		t.Fatalf("link not sent via bot: %+v", sent)
 	}
-	path := url[strings.Index(url, "/wx/bind"):]
+	path := url[strings.Index(url, "/w/"):]
 
 	noRedirect := &http.Client{CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
 	get := func(p, ua string) (*http.Response, string) {
@@ -3473,5 +3473,66 @@ func TestAdminListBots(t *testing.T) {
 	}
 	if ab := seen[adminBot.ID]; ab == nil || ab["owner"].(map[string]any)["username"] != "botadmin" {
 		t.Errorf("admin bot = %v", ab)
+	}
+}
+
+// ==================== Bot permissions: admins manage all, members their own ====================
+
+func TestBotAdminPermissions(t *testing.T) {
+	env := setup(t)
+	defer env.close()
+	env.register("permadmin", "password123") // superadmin
+	env.put("/api/admin/config/wechat-mp", map[string]string{"app_id": "wxperm", "app_secret": "s"})
+	adminBot := env.createBotForUser("AdminBot")
+
+	jar, _ := cookiejar.New(nil)
+	member := &testEnv{t: t, db: env.db, srv: env.srv, client: &http.Client{Jar: jar}, mgr: env.mgr, cfg: env.cfg}
+	member.register("permmember", "password123")
+	creds, _ := json.Marshal(mockserver.Credentials{BotID: "m", BotToken: "t", ILinkUserID: "member@im.wechat"})
+	memberBot, _ := env.db.CreateBot(member.userID(), "MemberBot", "mock", "", creds)
+	env.mgr.StartBot(context.Background(), memberBot)
+
+	// Admin: /api/bots lists every bot with its owner.
+	_, list := env.getList("/api/bots")
+	owners := map[string]map[string]any{}
+	for _, b := range list {
+		m := b.(map[string]any)
+		owners[m["id"].(string)], _ = m["owner"].(map[string]any)
+	}
+	if len(list) != 2 || owners[memberBot.ID]["username"] != "permmember" || owners[memberBot.ID]["mine"] != false || owners[adminBot.ID]["mine"] != true {
+		t.Fatalf("admin /api/bots = %v", list)
+	}
+	// Admin manages the member's bot.
+	for _, p := range []string{"/messages", "/contacts", "/channels", "/quota", "/apps"} {
+		if code, _ := env.get("/api/bots/" + memberBot.ID + p); code != 200 {
+			t.Errorf("admin GET member bot %s = %d, want 200", p, code)
+		}
+	}
+	if code, _ := env.put("/api/bots/"+memberBot.ID, map[string]string{"name": "Renamed"}); code != 200 {
+		t.Errorf("admin rename member bot = %d", code)
+	}
+	if code, r := env.postCode("/api/bots/"+memberBot.ID+"/wechat/bind-link", map[string]any{"recipient": "member@im.wechat"}); code != 200 || r["url"] == nil {
+		t.Errorf("admin bind-link on member bot = %d %v", code, r)
+	}
+
+	// Member: only own bots, no owner field, no bind links, nothing of the admin's.
+	_, own := member.getList("/api/bots")
+	if len(own) != 1 || own[0].(map[string]any)["owner"] != nil {
+		t.Errorf("member /api/bots = %v", own)
+	}
+	if code, _ := member.get("/api/bots/" + memberBot.ID + "/messages"); code != 200 {
+		t.Errorf("member own bot messages = %d", code)
+	}
+	if code, _ := member.get("/api/bots/" + adminBot.ID + "/messages"); code != 404 {
+		t.Errorf("member GET admin bot = %d, want 404", code)
+	}
+	if code, _ := member.postCode("/api/bots/"+memberBot.ID+"/wechat/bind-link", map[string]any{}); code != 403 {
+		t.Errorf("member bind-link on own bot = %d, want 403", code)
+	}
+	req, _ := http.NewRequest("DELETE", env.srv.URL+"/api/bots/"+memberBot.ID+"/wechat/identities/member@im.wechat", nil)
+	resp, _ := member.client.Do(req)
+	resp.Body.Close()
+	if resp.StatusCode != 403 {
+		t.Errorf("member unbind = %d, want 403", resp.StatusCode)
 	}
 }

@@ -19,10 +19,26 @@ import (
 
 func (s *Server) handleListBots(w http.ResponseWriter, r *http.Request) {
 	userID := auth.UserIDFromContext(r.Context())
-	bots, err := s.Store.ListBotsByUser(userID)
+	// Administrators manage every bot on the platform; members see their own.
+	isAdmin := s.isAdminUser(userID)
+	var bots []store.Bot
+	var err error
+	if isAdmin {
+		bots, err = s.Store.GetAllBots()
+	} else {
+		bots, err = s.Store.ListBotsByUser(userID)
+	}
 	if err != nil {
 		jsonError(w, "list failed", http.StatusInternalServerError)
 		return
+	}
+	owners := map[string]string{} // user id → username, admins only
+	if isAdmin {
+		if users, err := s.Store.ListUsers(); err == nil {
+			for _, u := range users {
+				owners[u.ID] = u.Username
+			}
+		}
 	}
 
 	type botResp struct {
@@ -41,6 +57,8 @@ func (s *Server) handleListBots(w http.ResponseWriter, r *http.Request) {
 		LastRemindedAt     *int64          `json:"last_reminded_at,omitempty"`
 		CreatedAt          int64           `json:"created_at"`
 		Extra              json.RawMessage `json:"extra,omitempty"`
+		// Owner is set for administrators so they can tell whose bot it is.
+		Owner *botOwner `json:"owner,omitempty"`
 	}
 	var result []botResp
 	for _, b := range bots {
@@ -58,10 +76,19 @@ func (s *Server) handleListBots(w http.ResponseWriter, r *http.Request) {
 			LastMsgAt: b.LastMsgAt, LastRemindedAt: b.LastRemindedAt,
 			CreatedAt: b.CreatedAt, Extra: extra,
 		})
+		if isAdmin {
+			result[len(result)-1].Owner = &botOwner{ID: b.UserID, Username: owners[b.UserID], Mine: b.UserID == userID}
+		}
 	}
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(result)
+}
+
+type botOwner struct {
+	ID       string `json:"id"`
+	Username string `json:"username"`
+	Mine     bool   `json:"mine"`
 }
 
 // extractPublicCredentials returns non-secret info from credentials for the API response.
@@ -250,7 +277,7 @@ func (s *Server) handleReconnect(w http.ResponseWriter, r *http.Request) {
 	userID := auth.UserIDFromContext(r.Context())
 
 	bot, err := s.Store.GetBot(botID)
-	if err != nil || bot.UserID != userID {
+	if err != nil || !s.canManageBot(userID, bot) {
 		jsonError(w, "not found", http.StatusNotFound)
 		return
 	}
@@ -269,7 +296,7 @@ func (s *Server) handleDeleteBot(w http.ResponseWriter, r *http.Request) {
 	userID := auth.UserIDFromContext(r.Context())
 
 	bot, err := s.Store.GetBot(botID)
-	if err != nil || bot.UserID != userID {
+	if err != nil || !s.canManageBot(userID, bot) {
 		jsonError(w, "not found", http.StatusNotFound)
 		return
 	}
@@ -284,7 +311,7 @@ func (s *Server) handleUpdateBot(w http.ResponseWriter, r *http.Request) {
 	userID := auth.UserIDFromContext(r.Context())
 
 	bot, err := s.Store.GetBot(botID)
-	if err != nil || bot.UserID != userID {
+	if err != nil || !s.canManageBot(userID, bot) {
 		jsonError(w, "not found", http.StatusNotFound)
 		return
 	}
@@ -361,7 +388,7 @@ func (s *Server) handleBotSend(w http.ResponseWriter, r *http.Request) {
 	userID := auth.UserIDFromContext(r.Context())
 
 	bot, err := s.Store.GetBot(botID)
-	if err != nil || bot.UserID != userID {
+	if err != nil || !s.canManageBot(userID, bot) {
 		jsonError(w, "not found", http.StatusNotFound)
 		return
 	}
@@ -533,7 +560,7 @@ func (s *Server) handleSetBotAI(w http.ResponseWriter, r *http.Request) {
 	userID := auth.UserIDFromContext(r.Context())
 
 	bot, err := s.Store.GetBot(botID)
-	if err != nil || bot.UserID != userID {
+	if err != nil || !s.canManageBot(userID, bot) {
 		jsonError(w, "not found", http.StatusNotFound)
 		return
 	}
@@ -563,7 +590,7 @@ func (s *Server) handleSetBotAIModel(w http.ResponseWriter, r *http.Request) {
 	userID := auth.UserIDFromContext(r.Context())
 
 	bot, err := s.Store.GetBot(botID)
-	if err != nil || bot.UserID != userID {
+	if err != nil || !s.canManageBot(userID, bot) {
 		jsonError(w, "not found", http.StatusNotFound)
 		return
 	}
@@ -591,7 +618,7 @@ func (s *Server) handleBotContacts(w http.ResponseWriter, r *http.Request) {
 	userID := auth.UserIDFromContext(r.Context())
 
 	bot, err := s.Store.GetBot(botID)
-	if err != nil || bot.UserID != userID {
+	if err != nil || !s.canManageBot(userID, bot) {
 		jsonError(w, "not found", http.StatusNotFound)
 		return
 	}

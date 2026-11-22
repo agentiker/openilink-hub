@@ -62,3 +62,22 @@ func TestValidVerifyFile(t *testing.T) {
 		t.Errorf("content = %q", c)
 	}
 }
+
+func TestBindCode(t *testing.T) {
+	seen := map[string]bool{}
+	for i := 0; i < 2000; i++ {
+		c := newBindCode()
+		if !validBindCode(c) {
+			t.Fatalf("generated invalid code %q", c)
+		}
+		if seen[c] {
+			t.Fatalf("duplicate code %q", c)
+		}
+		seen[c] = true
+	}
+	for _, bad := range []string{"", "short", "Ab3xK9mQ2zz", "Ab3xK9mQ2O", "Ab3xK9mQ/z", "../etc/pas"} {
+		if validBindCode(bad) {
+			t.Errorf("%q accepted", bad)
+		}
+	}
+}

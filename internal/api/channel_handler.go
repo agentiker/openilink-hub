@@ -14,7 +14,7 @@ func (s *Server) handleListChannels(w http.ResponseWriter, r *http.Request) {
 
 	// Verify bot ownership
 	bot, err := s.Store.GetBot(botID)
-	if err != nil || bot.UserID != userID {
+	if err != nil || !s.canManageBot(userID, bot) {
 		jsonError(w, "not found", http.StatusNotFound)
 		return
 	}
@@ -45,7 +45,7 @@ func (s *Server) handleCreateChannel(w http.ResponseWriter, r *http.Request) {
 
 	// Verify bot ownership
 	bot, err := s.Store.GetBot(botID)
-	if err != nil || bot.UserID != userID {
+	if err != nil || !s.canManageBot(userID, bot) {
 		jsonError(w, "bot not found", http.StatusNotFound)
 		return
 	}
@@ -68,7 +68,7 @@ func (s *Server) handleUpdateChannel(w http.ResponseWriter, r *http.Request) {
 
 	// Verify bot ownership
 	bot, err := s.Store.GetBot(botID)
-	if err != nil || bot.UserID != userID {
+	if err != nil || !s.canManageBot(userID, bot) {
 		jsonError(w, "not found", http.StatusNotFound)
 		return
 	}
@@ -131,7 +131,7 @@ func (s *Server) handleDeleteChannel(w http.ResponseWriter, r *http.Request) {
 
 	// Verify bot ownership
 	bot, err := s.Store.GetBot(botID)
-	if err != nil || bot.UserID != userID {
+	if err != nil || !s.canManageBot(userID, bot) {
 		jsonError(w, "not found", http.StatusNotFound)
 		return
 	}
@@ -156,7 +156,7 @@ func (s *Server) handleRotateKey(w http.ResponseWriter, r *http.Request) {
 
 	// Verify bot ownership
 	bot, err := s.Store.GetBot(botID)
-	if err != nil || bot.UserID != userID {
+	if err != nil || !s.canManageBot(userID, bot) {
 		jsonError(w, "not found", http.StatusNotFound)
 		return
 	}

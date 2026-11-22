@@ -17,7 +17,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/openilink/openilink-hub/internal/auth"
 	"github.com/openilink/openilink-hub/internal/provider"
 	"github.com/openilink/openilink-hub/internal/store"
 	"github.com/openilink/openilink-hub/internal/wechatmp"
@@ -30,8 +29,9 @@ import (
 // web OAuth, and the resulting openid/unionid/nickname/avatar are stored
 // against (bot, ilink_user_id).
 //
-//	POST /api/bots/{id}/wechat/bind-link   owner: create (and optionally send) a link
-//	GET  /wx/bind?t=TOKEN                  public: start OAuth (must be opened in WeChat)
+//	POST /api/bots/{id}/wechat/bind-link   admin: create (and optionally send) a link
+//	GET  /w/{code}                         public: short link, start OAuth (must be opened in WeChat)
+//	GET  /wx/bind?t=TOKEN                  public: legacy signed long link, same as /w/{code}
 //	GET  /wx/bind/callback?code&state      public: finish OAuth, store identity
 //
 // Requirements: a verified 服务号 (AppID/AppSecret) whose 网页授权域名 is the
@@ -126,6 +126,50 @@ func (s *Server) verifyBindToken(tok string) (*bindClaims, error) {
 	return &c, nil
 }
 
+// --- short links ---
+
+const (
+	bindCodeLen      = 10
+	bindCodeAlphabet = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789" // no 0/O/1/l/I
+)
+
+func newBindCode() string {
+	b := make([]byte, bindCodeLen)
+	rand.Read(b)
+	for i := range b {
+		b[i] = bindCodeAlphabet[int(b[i])%len(bindCodeAlphabet)]
+	}
+	return string(b)
+}
+
+func validBindCode(c string) bool {
+	if len(c) != bindCodeLen {
+		return false
+	}
+	for i := 0; i < len(c); i++ {
+		if !strings.ContainsRune(bindCodeAlphabet, rune(c[i])) {
+			return false
+		}
+	}
+	return true
+}
+
+// createBindLink stores a short link and returns its code. Expired links
+// are pruned opportunistically.
+func (s *Server) createBindLink(botID, ilinkUserID string, exp time.Time) (string, error) {
+	s.Store.PruneWeChatBindLinks(time.Now().Unix())
+	var err error
+	for i := 0; i < 5; i++ {
+		code := newBindCode()
+		if err = s.Store.CreateWeChatBindLink(&store.WeChatBindLink{
+			Code: code, BotID: botID, ILinkUserID: ilinkUserID, ExpiresAt: exp.Unix(),
+		}); err == nil {
+			return code, nil
+		}
+	}
+	return "", err
+}
+
 // --- OAuth state (WeChat limits state to 128 chars, so keep claims server-side) ---
 
 type wxStateStore struct {
@@ -169,11 +213,10 @@ func (st *wxStateStore) take(key string) (*bindClaims, bool) {
 
 // --- handlers ---
 
-// POST /api/bots/{id}/wechat/bind-link {recipient?, send?, text?}
+// POST /api/bots/{id}/wechat/bind-link {recipient?, send?, text?} — admin only.
 func (s *Server) handleWeChatBindLink(w http.ResponseWriter, r *http.Request) {
 	botID := r.PathValue("id")
-	b, err := s.Store.GetBot(botID)
-	if err != nil || b.UserID != auth.UserIDFromContext(r.Context()) {
+	if _, err := s.Store.GetBot(botID); err != nil {
 		jsonError(w, "not found", http.StatusNotFound)
 		return
 	}
@@ -201,8 +244,13 @@ func (s *Server) handleWeChatBindLink(w http.ResponseWriter, r *http.Request) {
 	}
 
 	exp := time.Now().Add(bindTokenTTL)
-	link := strings.TrimRight(s.Config.RPOrigin, "/") + "/wx/bind?t=" +
-		s.signBindToken(bindClaims{BotID: botID, ILinkUserID: req.Recipient, Exp: exp.Unix()})
+	code, err := s.createBindLink(botID, req.Recipient, exp)
+	if err != nil {
+		slog.Error("wechat bind: create link failed", "bot", botID, "err", err)
+		jsonError(w, "create link failed", http.StatusInternalServerError)
+		return
+	}
+	link := strings.TrimRight(s.Config.RPOrigin, "/") + "/w/" + code
 	resp := map[string]any{"url": link, "expires_at": exp.Unix(), "recipient": req.Recipient, "sent": false}
 
 	if req.Send {
@@ -238,13 +286,31 @@ func unwrapDefaultRecipient(p provider.Provider) (string, bool) {
 	return "", false
 }
 
-// GET /wx/bind?t=TOKEN
+// GET /w/{code} — short binding link.
+func (s *Server) handleWeChatBindShort(w http.ResponseWriter, r *http.Request) {
+	code := r.PathValue("code")
+	var l *store.WeChatBindLink
+	if validBindCode(code) {
+		l, _ = s.Store.GetWeChatBindLink(code)
+	}
+	if l == nil || time.Now().Unix() > l.ExpiresAt {
+		renderBindPage(w, http.StatusBadRequest, "链接无效或已过期", "请让 Bot 重新发送绑定链接。")
+		return
+	}
+	s.startWeChatBind(w, r, &bindClaims{BotID: l.BotID, ILinkUserID: l.ILinkUserID, Exp: l.ExpiresAt})
+}
+
+// GET /wx/bind?t=TOKEN — legacy signed long link (links sent before short links).
 func (s *Server) handleWeChatBindStart(w http.ResponseWriter, r *http.Request) {
 	claims, err := s.verifyBindToken(r.URL.Query().Get("t"))
 	if err != nil {
 		renderBindPage(w, http.StatusBadRequest, "链接无效或已过期", "请让 Bot 重新发送绑定链接。")
 		return
 	}
+	s.startWeChatBind(w, r, claims)
+}
+
+func (s *Server) startWeChatBind(w http.ResponseWriter, r *http.Request, claims *bindClaims) {
 	cfg := s.wechatMPConfig()
 	if !cfg.enabled() {
 		renderBindPage(w, http.StatusServiceUnavailable, "暂不可用", "服务号尚未配置。")
@@ -313,11 +379,10 @@ func (s *Server) handleWeChatBindCallback(w http.ResponseWriter, r *http.Request
 	renderBindPage(w, http.StatusOK, "绑定成功", msg)
 }
 
-// DELETE /api/bots/{id}/wechat/identities/{uid}
+// DELETE /api/bots/{id}/wechat/identities/{uid} — admin only.
 func (s *Server) handleWeChatUnbind(w http.ResponseWriter, r *http.Request) {
 	botID := r.PathValue("id")
-	b, err := s.Store.GetBot(botID)
-	if err != nil || b.UserID != auth.UserIDFromContext(r.Context()) {
+	if _, err := s.Store.GetBot(botID); err != nil {
 		jsonError(w, "not found", http.StatusNotFound)
 		return
 	}
