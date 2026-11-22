@@ -250,6 +250,7 @@ func (s *Server) Handler() http.Handler {
 	protected.HandleFunc("GET /api/admin/config/registry", s.requireAdmin(s.handleGetRegistryConfig))
 	protected.HandleFunc("PUT /api/admin/config/registry", s.requireAdmin(s.handleSetRegistryConfig))
 	protected.HandleFunc("GET /api/admin/config/registration", s.requireAdmin(s.handleGetRegistrationConfig))
+	protected.HandleFunc("GET /api/admin/bots", s.requireAdmin(s.handleAdminListBots))
 	protected.HandleFunc("GET /api/admin/config/wechat-mp", s.requireAdmin(s.handleGetWeChatMPConfig))
 	protected.HandleFunc("PUT /api/admin/config/wechat-mp", s.requireAdmin(s.handleSetWeChatMPConfig))
 	protected.HandleFunc("DELETE /api/admin/config/wechat-mp", s.requireAdmin(s.handleDeleteWeChatMPConfig))

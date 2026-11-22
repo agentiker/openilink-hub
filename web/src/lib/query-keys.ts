@@ -37,6 +37,7 @@ export const queryKeys = {
   admin: {
     stats: () => ["admin", "stats"] as const,
     users: () => ["admin", "users"] as const,
+    bots: () => ["admin", "bots"] as const,
     apps: () => ["admin", "apps"] as const,
     aiConfig: () => ["admin", "ai-config"] as const,
     oauthConfig: () => ["admin", "oauth-config"] as const,

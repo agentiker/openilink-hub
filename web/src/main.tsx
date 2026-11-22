@@ -14,6 +14,7 @@ import { SettingsPage } from "./pages/settings";
 
 import { AdminOverviewPage } from "./pages/admin-overview";
 import { AdminUsersPage } from "./pages/admin-users";
+import { AdminBotsPage } from "./pages/admin-bots";
 import { AdminReviewsPage } from "./pages/admin-reviews";
 import { AppsPage } from "./pages/apps";
 import { AppDetailPage } from "./pages/app-detail";
@@ -82,6 +83,7 @@ createRoot(document.getElementById("root")!).render(
                     />
                     <Route path="admin/overview" element={<AdminOverviewPage />} />
                     <Route path="admin/users" element={<AdminUsersPage />} />
+                    <Route path="admin/bots" element={<AdminBotsPage />} />
                     <Route path="admin/reviews" element={<AdminReviewsPage />} />
                     <Route path="settings" element={<SettingsPage />}>
                       <Route index element={<Navigate to="profile" replace />} />

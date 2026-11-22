@@ -21,6 +21,14 @@ export function useAdminUsers() {
   });
 }
 
+export function useAdminBots() {
+  return useQuery({
+    queryKey: queryKeys.admin.bots(),
+    queryFn: async () => (await api.adminListBots()) || [],
+    staleTime: 15_000,
+  });
+}
+
 export function useAdminApps() {
   return useQuery({
     queryKey: queryKeys.admin.apps(),
@@ -119,8 +127,15 @@ export function useSetAppListing() {
 export function useReviewListing() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ appId, approve, reason }: { appId: string; approve: boolean; reason?: string }) =>
-      api.reviewListing(appId, approve, reason),
+    mutationFn: ({
+      appId,
+      approve,
+      reason,
+    }: {
+      appId: string;
+      approve: boolean;
+      reason?: string;
+    }) => api.reviewListing(appId, approve, reason),
     onSuccess: (_data, { appId }) => {
       qc.invalidateQueries({ queryKey: queryKeys.admin.apps() });
       qc.invalidateQueries({ queryKey: queryKeys.apps.reviews(appId) });
@@ -192,8 +207,19 @@ export function useDeleteRegistry() {
 export function useSetOIDCConfig() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ slug, data }: { slug: string; data: { display_name: string; issuer_url: string; client_id: string; client_secret: string; scopes?: string } }) =>
-      api.setOIDCConfig(slug, data),
+    mutationFn: ({
+      slug,
+      data,
+    }: {
+      slug: string;
+      data: {
+        display_name: string;
+        issuer_url: string;
+        client_id: string;
+        client_secret: string;
+        scopes?: string;
+      };
+    }) => api.setOIDCConfig(slug, data),
     onSuccess: () => qc.invalidateQueries({ queryKey: queryKeys.admin.oidcConfig() }),
   });
 }

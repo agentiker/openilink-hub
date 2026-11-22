@@ -34,6 +34,23 @@ export interface BotContact {
   wechat?: WeChatIdentity;
 }
 
+/** Admin view of a bot (no credentials). */
+export interface AdminBot {
+  id: string;
+  name: string;
+  display_name: string;
+  provider: string;
+  status: string;
+  msg_count: number;
+  last_msg_at?: number;
+  created_at: number;
+  owner: { id: string; username: string; display_name: string; role: string };
+  /** WeChat user who scanned the bot's QR code. */
+  ilink_user_id?: string;
+  wechat?: WeChatIdentity;
+  contact_count: number;
+}
+
 export interface WeChatMPConfig {
   app_id: string;
   app_secret: string;
@@ -179,6 +196,7 @@ export const api = {
     }>(`/api/bots/${id}/wechat/bind-link`, { method: "POST", body: JSON.stringify(data) }),
   wechatUnbind: (id: string, uid: string) =>
     request(`/api/bots/${id}/wechat/identities/${encodeURIComponent(uid)}`, { method: "DELETE" }),
+  adminListBots: () => request<AdminBot[]>("/api/admin/bots"),
   getWeChatMPConfig: () => request<WeChatMPConfig>("/api/admin/config/wechat-mp"),
   setWeChatMPConfig: (data: {
     app_id: string;

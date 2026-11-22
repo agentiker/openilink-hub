@@ -3424,3 +3424,54 @@ func TestWeChatIdentityBinding(t *testing.T) {
 		t.Error("identity not deleted")
 	}
 }
+
+// ==================== Admin: all bots ====================
+
+func TestAdminListBots(t *testing.T) {
+	env := setup(t)
+	defer env.close()
+
+	env.register("botadmin", "password123") // first user → superadmin
+	adminBot := env.createBotForUser("AdminBot")
+
+	// A second user with their own bot (another browser session).
+	jar, _ := cookiejar.New(nil)
+	member := &testEnv{t: t, db: env.db, srv: env.srv, client: &http.Client{Jar: jar}, mgr: env.mgr}
+	member.register("botmember", "password123")
+	creds, _ := json.Marshal(mockserver.Credentials{BotID: "m", BotToken: "secret-token", ILinkUserID: "member@im.wechat"})
+	memberBot, _ := env.db.CreateBot(member.userID(), "MemberBot", "mock", "", creds)
+	env.db.UpsertWeChatIdentity(&store.WeChatIdentity{BotID: memberBot.ID, ILinkUserID: "member@im.wechat", OpenID: "o-m", Nickname: "李四"})
+
+	// Regular users still only see their own bots.
+	_, own := member.getList("/api/bots")
+	if len(own) != 1 {
+		t.Errorf("member /api/bots = %d bots, want 1", len(own))
+	}
+	if code, _ := member.getList("/api/admin/bots"); code != 403 {
+		t.Errorf("member /api/admin/bots = %d, want 403", code)
+	}
+
+	code, all := env.getList("/api/admin/bots")
+	assertCode(t, "admin bots", code, 200)
+	if len(all) != 2 {
+		t.Fatalf("admin sees %d bots, want 2", len(all))
+	}
+	raw, _ := json.Marshal(all)
+	if strings.Contains(string(raw), "secret-token") || strings.Contains(string(raw), "credentials") {
+		t.Fatal("credentials leaked to the admin list")
+	}
+	seen := map[string]map[string]any{}
+	for _, b := range all {
+		m := b.(map[string]any)
+		seen[m["id"].(string)] = m
+	}
+	mb := seen[memberBot.ID]
+	owner, _ := mb["owner"].(map[string]any)
+	wx, _ := mb["wechat"].(map[string]any)
+	if owner["username"] != "botmember" || owner["role"] != "member" || mb["ilink_user_id"] != "member@im.wechat" || wx["nickname"] != "李四" {
+		t.Errorf("member bot = %v", mb)
+	}
+	if ab := seen[adminBot.ID]; ab == nil || ab["owner"].(map[string]any)["username"] != "botadmin" {
+		t.Errorf("admin bot = %v", ab)
+	}
+}
