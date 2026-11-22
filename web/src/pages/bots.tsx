@@ -41,7 +41,7 @@ const statusConfig: Record<
   string,
   { label: string; variant: "default" | "destructive" | "outline"; dot: string }
 > = {
-  connected: { label: "运行中", variant: "default", dot: "bg-green-500" },
+  connected: { label: "运行中", variant: "default", dot: "bg-success" },
   disconnected: { label: "离线", variant: "outline", dot: "bg-muted-foreground" },
   error: { label: "故障", variant: "destructive", dot: "bg-destructive" },
   session_expired: { label: "授权过期", variant: "destructive", dot: "bg-destructive" },

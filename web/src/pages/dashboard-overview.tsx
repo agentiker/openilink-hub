@@ -10,7 +10,6 @@ import {
   Workflow,
   Cpu,
   AlertTriangle,
-  TrendingUp,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -25,8 +24,8 @@ const STEPS = [
     desc: "扫码登录你的微信，连接到平台。",
     link: "/dashboard/accounts",
     icon: Cpu,
-    color: "text-blue-500",
-    bg: "bg-blue-500/10",
+    color: "text-foreground",
+    bg: "bg-muted",
   },
   {
     step: "02",
@@ -34,8 +33,8 @@ const STEPS = [
     desc: "设置消息转发到你的服务器或 AI。",
     link: "/dashboard/accounts",
     icon: Workflow,
-    color: "text-violet-500",
-    bg: "bg-violet-500/10",
+    color: "text-foreground",
+    bg: "bg-muted",
   },
   {
     step: "03",
@@ -43,8 +42,8 @@ const STEPS = [
     desc: "从市场安装现成的扩展功能。",
     link: "/dashboard/apps",
     icon: Zap,
-    color: "text-orange-500",
-    bg: "bg-orange-500/10",
+    color: "text-foreground",
+    bg: "bg-muted",
   },
 ] as const;
 
@@ -62,8 +61,8 @@ const MEMBER_STEPS = [
     desc: "在电脑上打开登录页，用手机微信「扫一扫」绑定 Bot。",
     link: "/dashboard/accounts",
     icon: Cpu,
-    color: "text-blue-500",
-    bg: "bg-blue-500/10",
+    color: "text-foreground",
+    bg: "bg-muted",
   },
   {
     step: "02",
@@ -71,8 +70,8 @@ const MEMBER_STEPS = [
     desc: "在微信里给 Bot 发一句话，点开 Bot 发来的身份绑定链接。",
     link: "/dashboard/accounts",
     icon: MessageSquare,
-    color: "text-emerald-500",
-    bg: "bg-emerald-500/10",
+    color: "text-foreground",
+    bg: "bg-muted",
   },
   {
     step: "03",
@@ -80,8 +79,8 @@ const MEMBER_STEPS = [
     desc: "以后在手机微信里打开登录入口即可直接登录。",
     link: "/dashboard/accounts",
     icon: Zap,
-    color: "text-orange-500",
-    bg: "bg-orange-500/10",
+    color: "text-foreground",
+    bg: "bg-muted",
   },
 ] as const;
 
@@ -139,15 +138,15 @@ export function DashboardOverviewPage() {
       </div>
 
       {/* Metrics */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+      <div className={`grid gap-4 md:grid-cols-2 ${isAdmin ? "lg:grid-cols-4" : ""}`}>
         {[
           {
             label: "在线账号",
             value: stats?.online_bots ?? 0,
             sub: `共 ${stats?.total_bots ?? 0} 个`,
             icon: Bot,
-            color: "text-blue-500",
-            bg: "bg-blue-500/10",
+            color: "text-foreground",
+            bg: "bg-muted",
             badge: (stats?.online_bots ?? 0) > 0,
             link: "/dashboard/accounts",
           },
@@ -156,8 +155,8 @@ export function DashboardOverviewPage() {
             value: stats?.total_messages ?? 0,
             sub: "历史累计",
             icon: MessageSquare,
-            color: "text-emerald-500",
-            bg: "bg-emerald-500/10",
+            color: "text-foreground",
+            bg: "bg-muted",
             badge: false,
             link: null,
           },
@@ -166,8 +165,8 @@ export function DashboardOverviewPage() {
             value: stats?.total_installations ?? 0,
             sub: "个插件",
             icon: Workflow,
-            color: "text-violet-500",
-            bg: "bg-violet-500/10",
+            color: "text-foreground",
+            bg: "bg-muted",
             badge: false,
             link: null,
           },
@@ -176,8 +175,8 @@ export function DashboardOverviewPage() {
             value: stats?.connected_ws ?? 0,
             sub: "活跃连接",
             icon: Wifi,
-            color: "text-orange-500",
-            bg: "bg-orange-500/10",
+            color: "text-foreground",
+            bg: "bg-muted",
             badge: false,
             link: null,
           },
@@ -266,9 +265,6 @@ export function DashboardOverviewPage() {
               <div>
                 <CardTitle className="text-base font-semibold">快速开始</CardTitle>
                 <CardDescription className="text-xs mt-0.5">三步开始使用 Hi微连</CardDescription>
-              </div>
-              <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center text-primary">
-                <TrendingUp className="h-4 w-4" />
               </div>
             </div>
           </CardHeader>

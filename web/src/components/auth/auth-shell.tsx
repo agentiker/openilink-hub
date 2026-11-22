@@ -1,8 +1,6 @@
 import { useEffect, type ReactNode } from "react";
 import { Link } from "react-router-dom";
-import { HexagonBackground } from "@/components/ui/hexagon-background";
-import { Card, CardContent, CardFooter } from "@/components/ui/card";
-import { HiLogoMark } from "@/components/brand/hi-logo";
+import { HiLogo } from "@/components/brand/hi-logo";
 
 /**
  * Radix modal overlays (dialog/sheet/dropdown) lock the page with
@@ -17,7 +15,11 @@ export function releaseStaleBodyLock() {
   document.body.removeAttribute("data-scroll-locked");
 }
 
-/** Shared frame for the login pages: background, Hi微连 mark, card, footer. */
+/**
+ * Shared frame for the login pages: a quiet white page, the wordmark at the
+ * top, one bordered panel in the middle, and a footer line. Canon, played
+ * straight (Vercel / Linear / OpenAI sign-in pages).
+ */
 export function AuthShell({
   subtitle,
   children,
@@ -32,40 +34,29 @@ export function AuthShell({
   }, []);
 
   return (
-    <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-background px-4 py-12">
-      <HexagonBackground className="opacity-20" hexagonSize={60} hexagonMargin={4} />
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,transparent_0%,hsl(var(--background))_100%)]" />
+    <div className="flex min-h-[100dvh] flex-col bg-background">
+      <header className="flex h-16 items-center px-6">
+        <Link to="/" aria-label="Hi微连 首页">
+          <HiLogo className="text-[15px]" markClassName="size-7" />
+        </Link>
+      </header>
 
-      <div className="relative z-10 w-full max-w-[420px] animate-in fade-in zoom-in-95 duration-500">
-        <div className="mb-8 text-center space-y-2">
-          <HiLogoMark className="mx-auto size-14 mb-4 drop-shadow-lg" />
-          <h1 className="text-3xl font-extrabold tracking-tight">Hi微连</h1>
-          <p className="text-sm text-muted-foreground font-medium">{subtitle}</p>
+      <main className="flex flex-1 items-start justify-center px-5 pt-[6vh] pb-16 sm:items-center sm:pt-0">
+        <div className="w-full max-w-[400px]">
+          <div className="mb-8 text-center">
+            <h1 className="text-2xl font-semibold tracking-[-0.025em]">Hi微连</h1>
+            <p className="mt-2 text-sm text-muted-foreground">{subtitle}</p>
+          </div>
+          <div className="rounded-xl border border-border bg-card p-6 shadow-[0_1px_2px_rgba(16,24,20,.04),0_12px_32px_-20px_rgba(16,24,20,.18)] sm:p-8">
+            {children}
+          </div>
+          {below}
         </div>
+      </main>
 
-        <Card className="border-border/50 shadow-2xl backdrop-blur-md bg-card/80">
-          <CardContent className="pt-8 pb-6">{children}</CardContent>
-          <CardFooter className="border-t bg-muted/30 pt-4 pb-4 rounded-b-xl justify-center">
-            <p className="text-[10px] text-center text-muted-foreground/60 leading-relaxed px-6">
-              登录即代表您同意我们的{" "}
-              <Link to="#" className="underline">
-                服务条款
-              </Link>{" "}
-              和{" "}
-              <Link to="#" className="underline">
-                隐私政策
-              </Link>
-              。
-            </p>
-          </CardFooter>
-        </Card>
-
-        {below}
-
-        <footer className="mt-8 text-center text-[11px] text-muted-foreground/50 font-medium">
-          &copy; 2026 Hi微连 保留所有权利。
-        </footer>
-      </div>
+      <footer className="px-6 pb-8 text-center text-xs text-muted-foreground">
+        登录即表示同意服务条款与隐私政策 · &copy; 2026 Hi微连
+      </footer>
     </div>
   );
 }

@@ -413,9 +413,19 @@ func (s *Server) handleWeChatUnbind(w http.ResponseWriter, r *http.Request) {
 
 var bindPageTmpl = template.Must(template.New("bind").Parse(`<!DOCTYPE html>
 <html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>{{.Title}}</title></head>
-<body style="font-family:system-ui,-apple-system,sans-serif;text-align:center;padding:30vh 24px 0;color:#333">
-<h2 style="font-weight:600">{{.Title}}</h2><p style="color:#666;line-height:1.6">{{.Message}}</p></body></html>`))
+<title>{{.Title}} · Hi微连</title><link rel="icon" href="/favicon.svg"><style>
+:root{color-scheme:light}
+*{box-sizing:border-box}
+body{margin:0;background:#fff;color:#151916;font-family:"Geist","PingFang SC","Hiragino Sans GB",system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+.wrap{max-width:400px;margin:0 auto;padding:16vh 24px 40px;text-align:center}
+.mark{width:48px;height:48px;border-radius:12px}
+h2{font-size:22px;font-weight:600;letter-spacing:-.02em;margin:22px 0 8px}
+p{color:#6b736d;line-height:1.7;font-size:15px;margin:0}
+.btn{display:block;margin:20px auto 0;max-width:280px;height:46px;line-height:46px;border-radius:10px;background:#151916;color:#fff;text-decoration:none;font-weight:500;font-size:15px}
+.btn+.btn{margin-top:10px;background:#fff;color:#151916;border:1px solid #e3e6e3}
+.foot{margin-top:56px;color:#9aa19c;font-size:12px}
+</style></head>
+<body><div class="wrap"><img class="mark" src="/favicon.svg" alt="Hi微连"><h2>{{.Title}}</h2><p>{{.Message}}</p><p class="foot">Hi微连</p></div></body></html>`))
 
 func renderBindPage(w http.ResponseWriter, status int, title, message string) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")

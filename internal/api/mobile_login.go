@@ -191,14 +191,25 @@ type mobilePage struct {
 
 var mobilePageTmpl = template.Must(template.New("m").Parse(`<!DOCTYPE html>
 <html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>{{.Title}} · Hi微连</title><link rel="icon" href="/favicon.svg"></head>
-<body style="margin:0;font-family:system-ui,-apple-system,sans-serif;background:#f6f7f8;color:#222">
-<div style="max-width:420px;margin:0 auto;padding:18vh 24px 0;text-align:center">
-<img src="/favicon.svg" alt="Hi微连" width="64" height="64" style="border-radius:16px">
-<h2 style="font-weight:600;margin:20px 0 10px">{{.Title}}</h2>
-<p style="color:#666;line-height:1.7;font-size:15px">{{.Message}}</p>
-{{range .Links}}<a href="{{.Href}}" style="display:block;margin:14px auto 0;max-width:260px;padding:11px 0;border-radius:10px;background:#07C160;color:#fff;text-decoration:none;font-weight:600">{{.Label}}</a>{{end}}
-<p style="margin-top:48px;color:#aaa;font-size:12px">Hi微连</p>
+<title>{{.Title}} · Hi微连</title><link rel="icon" href="/favicon.svg">
+<style>
+:root{color-scheme:light}
+*{box-sizing:border-box}
+body{margin:0;background:#fff;color:#151916;font-family:"Geist","PingFang SC","Hiragino Sans GB",system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+.wrap{max-width:400px;margin:0 auto;padding:16vh 24px 40px;text-align:center}
+.mark{width:48px;height:48px;border-radius:12px}
+h2{font-size:22px;font-weight:600;letter-spacing:-.02em;margin:22px 0 8px}
+p{color:#6b736d;line-height:1.7;font-size:15px;margin:0}
+.btn{display:block;margin:20px auto 0;max-width:280px;height:46px;line-height:46px;border-radius:10px;background:#151916;color:#fff;text-decoration:none;font-weight:500;font-size:15px}
+.btn+.btn{margin-top:10px;background:#fff;color:#151916;border:1px solid #e3e6e3}
+.foot{margin-top:56px;color:#9aa19c;font-size:12px}
+</style></head>
+<body><div class="wrap">
+<img class="mark" src="/favicon.svg" alt="Hi微连">
+<h2>{{.Title}}</h2>
+<p>{{.Message}}</p>
+{{range .Links}}<a class="btn" href="{{.Href}}">{{.Label}}</a>{{end}}
+<p class="foot">Hi微连</p>
 </div></body></html>`))
 
 func renderMobilePage(w http.ResponseWriter, status int, p mobilePage) {

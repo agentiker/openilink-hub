@@ -50,6 +50,7 @@ import { parseTools } from "../components/tools-display";
 import { WeChatContactsCard } from "@/components/wechat/wechat-contacts-card";
 import { useConfirm } from "@/components/ui/confirm-dialog";
 import { MemberBotDetail } from "@/components/member/member-bot-detail";
+import { StatusPill } from "@/components/status-pill";
 import { isAdminRole, useAuthStore } from "@/stores/auth-store";
 const DEFAULT_MODEL = "__default__";
 
@@ -260,13 +261,7 @@ function AdminBotDetail() {
                   </Button>
                 </div>
               )}
-              <Badge variant={bot.status === "connected" ? "default" : "destructive"}>
-                {bot.status === "connected"
-                  ? "运行中"
-                  : bot.status === "session_expired"
-                    ? "授权过期"
-                    : "离线"}
-              </Badge>
+              <StatusPill status={bot.status} />
               {bot.can_send === false ? (
                 <Badge variant="outline" className="text-orange-600 border-orange-300">
                   不可发送

@@ -2,12 +2,12 @@ import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { Bot as BotIcon, Loader2, MessageSquare, UserRound, Unplug } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { api, botDisplayName } from "@/lib/api";
 import { useBot, useBotWeChatUser } from "@/hooks/use-bots";
 import { useBotPush, usePushListener } from "@/lib/ws";
+import { StatusPill } from "@/components/status-pill";
 import { MessageItem, type MessageItemData } from "@/pages/console/message-items";
 
 type Message = {
@@ -20,13 +20,6 @@ type Message = {
 };
 
 const PAGE = 30;
-
-const statusText: Record<string, string> = {
-  connected: "运行中",
-  session_expired: "授权过期",
-  disconnected: "离线",
-  error: "异常",
-};
 
 function formatTime(ts?: number) {
   return ts ? new Date(ts * 1000).toLocaleString() : "—";
@@ -61,33 +54,34 @@ export function MemberBotDetail({ id }: { id: string }) {
 
   const wx = owner?.wechat;
   return (
-    <div className="flex flex-col gap-6 max-w-3xl mx-auto w-full" data-testid="member-bot-detail">
-      <Card className="border-border/50">
-        <CardContent className="p-5 space-y-5">
-          <div className="flex items-center gap-4">
-            <div className="h-12 w-12 rounded-2xl bg-primary/10 flex items-center justify-center text-primary border border-primary/20 shrink-0">
-              <BotIcon className="h-6 w-6" />
+    <div
+      className="mx-auto flex w-full max-w-3xl flex-col gap-4 sm:gap-6"
+      data-testid="member-bot-detail"
+    >
+      <Card className="border-border shadow-none">
+        <CardContent className="space-y-5 p-4 sm:p-6">
+          <div className="flex items-center gap-3">
+            <div className="flex size-10 shrink-0 items-center justify-center rounded-lg border border-border">
+              <BotIcon className="size-5 text-muted-foreground" aria-hidden />
             </div>
-            <div className="min-w-0 space-y-1">
-              <div className="flex items-center gap-2 flex-wrap">
-                <h1 className="text-xl font-bold tracking-tight truncate">{botDisplayName(bot)}</h1>
-                <Badge variant={bot.status === "connected" ? "default" : "destructive"}>
-                  {statusText[bot.status] ?? bot.status}
-                </Badge>
-              </div>
-              <p className="text-xs text-muted-foreground font-mono">{bot.id.slice(0, 12)}…</p>
+            <div className="min-w-0 flex-1">
+              <h1 className="truncate text-lg font-semibold tracking-[-0.02em]">
+                {botDisplayName(bot)}
+              </h1>
+              <p className="truncate text-xs text-muted-foreground">Bot · {bot.id.slice(0, 12)}</p>
             </div>
+            <StatusPill status={bot.status} />
           </div>
 
           {bot.status === "session_expired" ? (
-            <p className="text-xs text-orange-600 bg-orange-500/10 rounded-lg px-3 py-2">
+            <p className="rounded-md bg-destructive/5 px-3 py-2 text-xs text-destructive">
               授权已过期，请回到「全部账号」重新扫码绑定。
             </p>
           ) : null}
 
-          <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-3 text-sm">
-            <div className="sm:col-span-2">
-              <dt className="text-xs text-muted-foreground mb-1">微信用户</dt>
+          <dl className="grid grid-cols-2 gap-x-6 gap-y-4 border-t border-border pt-5 text-sm">
+            <div className="col-span-2">
+              <dt className="mb-2 text-xs text-muted-foreground">微信用户</dt>
               <dd className="flex items-center gap-2.5" data-testid="bot-wechat-user">
                 {wx?.avatar_url ? (
                   <img
@@ -113,15 +107,15 @@ export function MemberBotDetail({ id }: { id: string }) {
             </div>
             <div>
               <dt className="text-xs text-muted-foreground">消息数</dt>
-              <dd className="tabular-nums">{bot.msg_count}</dd>
+              <dd className="mt-0.5 font-medium tabular-nums">{bot.msg_count}</dd>
             </div>
             <div>
               <dt className="text-xs text-muted-foreground">最后消息</dt>
-              <dd>{formatTime(bot.last_msg_at)}</dd>
+              <dd className="mt-0.5 tabular-nums">{formatTime(bot.last_msg_at)}</dd>
             </div>
             <div>
               <dt className="text-xs text-muted-foreground">创建时间</dt>
-              <dd>{formatTime(bot.created_at)}</dd>
+              <dd className="mt-0.5 tabular-nums">{formatTime(bot.created_at)}</dd>
             </div>
           </dl>
         </CardContent>
@@ -185,14 +179,14 @@ function MessageHistory({ botId }: { botId: string }) {
   }
 
   return (
-    <Card className="border-border/50">
-      <CardHeader className="pb-2">
-        <CardTitle className="text-sm flex items-center gap-2">
-          <MessageSquare className="h-4 w-4 text-muted-foreground" />
+    <Card className="border-border shadow-none">
+      <CardHeader className="px-4 pb-2 sm:px-6">
+        <CardTitle className="flex items-center gap-2 text-sm font-semibold">
+          <MessageSquare className="size-4 text-muted-foreground" aria-hidden />
           历史消息
         </CardTitle>
       </CardHeader>
-      <CardContent className="space-y-3" data-testid="message-history">
+      <CardContent className="space-y-3 px-4 sm:px-6" data-testid="message-history">
         {error ? <p className="text-sm text-destructive">{error}</p> : null}
         {!loading && messages.length === 0 && !error ? (
           <p className="text-sm text-muted-foreground py-8 text-center">
@@ -208,10 +202,10 @@ function MessageHistory({ botId }: { botId: string }) {
               data-testid="history-message"
             >
               <div
-                className={`max-w-[85%] px-3.5 py-2.5 rounded-2xl text-sm ${
+                className={`max-w-[85%] rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed ${
                   inbound
-                    ? "bg-muted/60 text-foreground rounded-bl-none"
-                    : "bg-primary/10 text-foreground rounded-br-none"
+                    ? "rounded-bl-md border border-border bg-background text-foreground"
+                    : "rounded-br-md bg-primary text-primary-foreground"
                 }`}
               >
                 <div className="space-y-2">
@@ -231,7 +225,7 @@ function MessageHistory({ botId }: { botId: string }) {
                   )}
                 </div>
                 <p
-                  className={`text-[10px] mt-1 text-muted-foreground ${inbound ? "text-left" : "text-right"}`}
+                  className={`mt-1 text-[11px] tabular-nums ${inbound ? "text-left text-muted-foreground" : "text-right text-primary-foreground/60"}`}
                 >
                   {inbound ? "收到" : "发出"} · {new Date(m.created_at * 1000).toLocaleString()}
                 </p>

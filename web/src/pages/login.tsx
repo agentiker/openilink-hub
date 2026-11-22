@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Loader2, X, QrCode } from "lucide-react";
+import { Loader2, RotateCw, ScanLine, Smartphone } from "lucide-react";
 import { useNavigate, Link } from "react-router-dom";
 import QRCode from "qrcode";
 
@@ -28,7 +28,10 @@ const inWeChat = typeof navigator !== "undefined" && /MicroMessenger/i.test(navi
  */
 function OnboardingSteps() {
   return (
-    <ol className="w-full space-y-2 text-xs text-muted-foreground" data-testid="onboarding-steps">
+    <ol
+      className="w-full space-y-3 text-[13px] leading-relaxed text-muted-foreground"
+      data-testid="onboarding-steps"
+    >
       {[
         [
           "扫码注册",
@@ -38,11 +41,11 @@ function OnboardingSteps() {
         ["一键登录", "以后在手机微信中打开下方入口，无需再扫码。"],
       ].map(([t, d], i) => (
         <li key={t} className="flex gap-2.5">
-          <span className="flex size-5 shrink-0 items-center justify-center rounded-full bg-primary/10 text-[10px] font-bold text-primary">
+          <span className="mt-px flex size-5 shrink-0 items-center justify-center rounded-full border border-border text-[11px] font-medium text-foreground tabular-nums">
             {i + 1}
           </span>
           <span>
-            <b className="text-foreground">{t}</b>：{d}
+            <span className="font-medium text-foreground">{t}</span>　{d}
           </span>
         </li>
       ))}
@@ -54,17 +57,19 @@ function MobileEntry() {
   const url = `${window.location.origin}/m`;
   return (
     <div
-      className="w-full rounded-xl border border-border/60 bg-muted/20 p-3 flex items-center gap-3"
+      className="flex w-full items-center gap-4 rounded-lg border border-border bg-muted p-3.5"
       data-testid="mobile-entry"
     >
-      <div className="rounded-lg bg-white p-1.5 shrink-0">
-        <QrCanvas url={url} size={72} />
+      <div className="shrink-0 rounded-md bg-white p-1.5 ring-1 ring-border">
+        <QrCanvas url={url} size={68} />
       </div>
-      <div className="min-w-0 space-y-1">
-        <p className="text-sm font-semibold">已注册？手机微信一键登录</p>
-        <p className="text-xs text-muted-foreground leading-relaxed">
-          用微信扫这个码，在手机上直接登录；也可以在微信里收藏{" "}
-          <span className="font-mono">{window.location.host}/m</span>
+      <div className="min-w-0">
+        <p className="flex items-center gap-1.5 text-sm font-medium">
+          <Smartphone className="size-3.5 text-muted-foreground" aria-hidden />
+          已注册？手机微信一键登录
+        </p>
+        <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+          用微信扫这个码，在手机上直接登录；也可以收藏 {window.location.host}/m
         </p>
       </div>
     </div>
@@ -181,14 +186,14 @@ export function LoginPage() {
     return (
       <AuthShell subtitle="手机微信一键登录">
         <div className="flex flex-col items-center gap-5 text-center" data-testid="wechat-entry">
-          <Button asChild className="w-full h-11 font-bold">
+          <Button asChild className="h-11 w-full text-[15px] font-medium">
             <a href="/m">微信一键登录</a>
           </Button>
-          <p className="text-xs text-muted-foreground leading-relaxed">
+          <p className="text-[13px] leading-relaxed text-muted-foreground">
             适用于已完成注册和身份绑定的用户。
             <br />
             首次使用需要注册：请在电脑上打开{" "}
-            <span className="font-mono">{window.location.host}/login</span>
+            <span className="font-medium text-foreground">{window.location.host}/login</span>
             ，再用手机微信「扫一扫」扫描页面上的二维码（在微信里长按识别或点击链接无法完成注册）。
           </p>
         </div>
@@ -200,9 +205,12 @@ export function LoginPage() {
     <AuthShell
       subtitle="首次使用请扫码注册，已注册可在手机微信一键登录"
       below={
-        <p className="mt-6 text-center text-xs text-muted-foreground/70">
+        <p className="mt-6 text-center text-xs text-muted-foreground">
           管理员请从{" "}
-          <Link to="/admin/login" className="underline hover:text-foreground">
+          <Link
+            to="/admin/login"
+            className="text-foreground underline underline-offset-4 hover:no-underline"
+          >
             管理员入口
           </Link>{" "}
           登录
@@ -210,35 +218,41 @@ export function LoginPage() {
       }
     >
       <div className="flex flex-col items-center gap-6" data-testid="scan-login">
-        <div className="relative group">
-          <div className="absolute -inset-4 bg-primary/5 rounded-[2rem] blur-xl group-hover:bg-primary/10 transition-all" />
+        <div className="flex size-[232px] items-center justify-center rounded-lg border border-border bg-white p-3">
           {qrUrl ? (
-            <div className="relative rounded-2xl border-4 border-background bg-white p-4 shadow-2xl">
-              <QrCanvas url={qrUrl} />
+            <div
+              className={
+                scanStatus === "scanned" ? "opacity-25 transition-opacity" : "transition-opacity"
+              }
+            >
+              <QrCanvas url={qrUrl} size={204} />
+            </div>
+          ) : scanStatus === "error" ? (
+            <div className="space-y-3 px-4 text-center">
+              <p className="text-[13px] text-muted-foreground">{scanMessage}</p>
+              <Button size="sm" variant="outline" onClick={startScanLogin} className="gap-1.5">
+                <RotateCw className="size-3.5" aria-hidden />
+                重新获取
+              </Button>
             </div>
           ) : (
-            <div className="relative flex h-[224px] w-[224px] items-center justify-center rounded-2xl border-2 border-dashed bg-muted/30">
-              {scanStatus === "error" ? (
-                <div className="text-center space-y-3 px-4">
-                  <X className="h-8 w-8 text-destructive mx-auto" />
-                  <p className="text-xs text-muted-foreground">{scanMessage}</p>
-                  <Button size="sm" variant="outline" onClick={startScanLogin}>
-                    重新获取
-                  </Button>
-                </div>
-              ) : (
-                <Loader2 className="h-10 w-10 animate-spin text-primary/40" />
-              )}
-            </div>
+            <Loader2
+              className="size-6 animate-spin text-muted-foreground"
+              aria-label="正在加载二维码"
+            />
           )}
         </div>
 
-        <div className="text-center space-y-1.5">
-          <div className="flex items-center justify-center gap-2">
-            <QrCode className="h-4 w-4 text-primary" />
-            <p className="font-bold text-sm">{scanMessage || "正在加载..."}</p>
-          </div>
-          <p className="text-xs text-muted-foreground max-w-[260px] mx-auto leading-relaxed">
+        <div className="space-y-1.5 text-center" aria-live="polite">
+          <p className="flex items-center justify-center gap-2 text-sm font-medium">
+            {scanStatus === "scanned" ? (
+              <span className="size-2 rounded-full bg-success" aria-hidden />
+            ) : (
+              <ScanLine className="size-4 text-muted-foreground" aria-hidden />
+            )}
+            {scanMessage || "正在加载..."}
+          </p>
+          <p className="mx-auto max-w-[280px] text-[13px] leading-relaxed text-muted-foreground">
             {scanStatus === "scanned"
               ? "请在手机微信的 ClawBot 中点击确认"
               : !infoData || registrationEnabled
@@ -246,6 +260,8 @@ export function LoginPage() {
                 : "请用手机微信「扫一扫」扫描。当前仅限已注册的微信账号，新用户暂不开放。"}
           </p>
         </div>
+
+        <div className="h-px w-full bg-border" />
 
         <OnboardingSteps />
         <MobileEntry />

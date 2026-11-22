@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { KeyRound, User, Lock, ArrowRight, Loader2, X, Shield, Github } from "lucide-react";
+import { KeyRound, ArrowRight, Loader2, X, Shield, Github } from "lucide-react";
 import { useNavigate, useSearchParams, Link } from "react-router-dom";
 
 import { Button } from "@/components/ui/button";
@@ -68,34 +68,43 @@ export function AdminLoginPage() {
     <AuthShell
       subtitle="管理员登录"
       below={
-        <p className="mt-6 text-center text-xs text-muted-foreground/70">
+        <p className="mt-6 text-center text-xs text-muted-foreground">
           普通用户请{" "}
-          <Link to="/login" className="underline hover:text-foreground">
+          <Link
+            to="/login"
+            className="text-foreground underline underline-offset-4 hover:no-underline"
+          >
             微信扫码登录
           </Link>
         </p>
       }
     >
-      <form onSubmit={handleSubmit} className="space-y-3" data-testid="admin-login-form">
-        <div className="relative">
-          <User className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+      <form onSubmit={handleSubmit} className="space-y-4" data-testid="admin-login-form">
+        <div className="space-y-1.5">
+          <label htmlFor="admin-username" className="text-[13px] font-medium">
+            用户名
+          </label>
           <Input
+            id="admin-username"
             placeholder="管理员用户名"
             autoComplete="username"
-            className="pl-10 h-9 bg-muted/20"
+            className="h-10"
             value={username}
             onChange={(e) => setUsername(e.target.value)}
             required
             disabled={loading}
           />
         </div>
-        <div className="relative">
-          <Lock className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+        <div className="space-y-1.5">
+          <label htmlFor="admin-password" className="text-[13px] font-medium">
+            密码
+          </label>
           <Input
+            id="admin-password"
             type="password"
             placeholder="登录密码"
             autoComplete="current-password"
-            className="pl-10 h-9 bg-muted/20"
+            className="h-10"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             required
@@ -105,15 +114,15 @@ export function AdminLoginPage() {
 
         {error ? (
           <div
-            className="flex items-center gap-2 p-2.5 rounded-lg bg-destructive/10 text-destructive text-xs font-medium border border-destructive/20"
+            className="flex items-start gap-2 rounded-md border border-destructive/25 bg-destructive/5 p-2.5 text-[13px] text-destructive"
             role="alert"
           >
-            <X className="h-3.5 w-3.5 shrink-0" />
+            <X className="mt-0.5 size-3.5 shrink-0" aria-hidden />
             {error}
           </div>
         ) : null}
 
-        <Button type="submit" className="w-full h-9 font-bold text-sm" disabled={loading}>
+        <Button type="submit" className="h-10 w-full text-sm font-medium" disabled={loading}>
           {loading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
           登录
           {!loading && <ArrowRight className="ml-2 h-3.5 w-3.5" />}
@@ -126,7 +135,7 @@ export function AdminLoginPage() {
             <div className="absolute inset-0 flex items-center">
               <Separator />
             </div>
-            <div className="relative flex justify-center text-[10px] uppercase font-bold tracking-widest text-muted-foreground">
+            <div className="relative flex justify-center text-xs text-muted-foreground">
               <span className="bg-card px-3">或</span>
             </div>
           </div>
@@ -139,7 +148,7 @@ export function AdminLoginPage() {
                 onClick={handlePasskey}
                 disabled={loading}
               >
-                <KeyRound className="h-4 w-4 text-primary" />
+                <KeyRound className="h-4 w-4" aria-hidden />
                 使用通行密钥登录
               </Button>
             ) : null}

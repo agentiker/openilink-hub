@@ -1,5 +1,5 @@
 import { Outlet, useNavigate, Link, useLocation } from "react-router-dom";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { useUser } from "@/hooks/use-auth";
 import { useBots } from "@/hooks/use-bots";
 import { useAuthStore } from "@/stores/auth-store";
@@ -11,15 +11,12 @@ import {
   Sun,
   Moon,
   ChevronsUpDown,
-  Zap,
   Settings2,
-  Search,
   MonitorDot,
   Puzzle,
   Circle,
   House,
   Code2,
-  X,
 } from "lucide-react";
 import { api, botDisplayName } from "../lib/api";
 import { useTheme } from "../lib/theme";
@@ -62,7 +59,6 @@ import {
 } from "@/components/ui/breadcrumb";
 import { Separator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import * as React from "react";
 
@@ -93,7 +89,7 @@ const BREADCRUMB_LABELS: Record<string, string> = {
 const BREADCRUMB_SKIP = new Set(["apps", "install"]);
 
 const statusColors: Record<string, string> = {
-  connected: "text-green-500 fill-green-500",
+  connected: "text-success fill-success",
   disconnected: "text-muted-foreground fill-muted-foreground",
   error: "text-destructive fill-destructive",
   session_expired: "text-destructive fill-destructive",
@@ -102,18 +98,6 @@ const statusColors: Record<string, string> = {
 function LayoutHeader() {
   const location = useLocation();
   const { resolvedTheme, setTheme } = useTheme();
-  const searchRef = useRef<HTMLInputElement>(null);
-
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "k" && (e.metaKey || e.ctrlKey)) {
-        e.preventDefault();
-        searchRef.current?.focus();
-      }
-    };
-    document.addEventListener("keydown", handleKeyDown);
-    return () => document.removeEventListener("keydown", handleKeyDown);
-  }, []);
 
   // Build breadcrumbs from path, skipping segments that are intermediate
   // parts of a compound route (e.g. "apps" in /accounts/:id/apps/:iid).
@@ -134,7 +118,7 @@ function LayoutHeader() {
   }
 
   return (
-    <header className="flex h-16 shrink-0 items-center justify-between gap-2 border-b bg-background/95 backdrop-blur px-6 sticky top-0 z-40">
+    <header className="sticky top-0 z-40 flex h-14 shrink-0 items-center justify-between gap-2 border-b bg-background/90 px-4 backdrop-blur supports-[backdrop-filter]:bg-background/75 sm:px-6">
       <div className="flex items-center gap-4">
         <SidebarTrigger className="-ml-2 h-9 w-9" />
         <Separator orientation="vertical" className="h-4 opacity-50" />
@@ -144,7 +128,7 @@ function LayoutHeader() {
               <BreadcrumbLink asChild>
                 <Link
                   to="/dashboard/overview"
-                  className="flex items-center text-muted-foreground hover:text-primary transition-colors"
+                  className="flex items-center text-muted-foreground transition-colors hover:text-foreground"
                 >
                   <House className="h-3.5 w-3.5" />
                 </Link>
@@ -156,15 +140,12 @@ function LayoutHeader() {
                 {i > 0 && <BreadcrumbSeparator className="opacity-30" />}
                 <BreadcrumbItem>
                   {bc.isLast ? (
-                    <BreadcrumbPage className="font-bold text-foreground">
+                    <BreadcrumbPage className="font-medium text-foreground">
                       {bc.label}
                     </BreadcrumbPage>
                   ) : (
                     <BreadcrumbLink asChild>
-                      <Link
-                        to={bc.path}
-                        className="hover:text-primary transition-colors font-medium"
-                      >
+                      <Link to={bc.path} className="transition-colors hover:text-foreground">
                         {bc.label}
                       </Link>
                     </BreadcrumbLink>
@@ -178,18 +159,6 @@ function LayoutHeader() {
 
       <TooltipProvider>
         <div className="flex items-center gap-3">
-          <div className="hidden lg:flex relative items-center group">
-            <Search className="absolute left-3 size-3.5 text-muted-foreground group-focus-within:text-primary transition-colors z-10" />
-            <Input
-              ref={searchRef}
-              aria-label="搜索"
-              placeholder="搜索..."
-              className="h-9 w-56 pl-9 pr-14 focus:w-72 transition-all duration-200 bg-muted/40 border-border/50"
-            />
-            <kbd className="absolute right-2.5 pointer-events-none flex h-5 items-center gap-0.5 rounded border border-border/50 bg-muted px-1.5 text-[10px] font-medium text-muted-foreground group-focus-within:hidden">
-              ⌘K
-            </kbd>
-          </div>
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
@@ -206,15 +175,6 @@ function LayoutHeader() {
               </Button>
             </TooltipTrigger>
             <TooltipContent>切换外观主题</TooltipContent>
-          </Tooltip>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-9 w-9 relative">
-                <Zap className="h-4 w-4 text-yellow-500 fill-yellow-500/20" />
-                <span className="absolute top-2 right-2 size-2 bg-primary rounded-full border-2 border-background animate-pulse" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>活动</TooltipContent>
           </Tooltip>
         </div>
       </TooltipProvider>
