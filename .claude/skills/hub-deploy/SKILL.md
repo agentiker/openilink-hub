@@ -43,7 +43,7 @@ compose 项目名固定为 `openilink-hub`，容器名 `openilink-hub-hub-1`。�
 
 ## 首次部署与管理员
 
-Hub 的规则是**第一个注册的用户自动成为超级管理员，且公开注册默认开启**——站点先上公网再注册，谁先打开谁就是管理员。所以首次部署时（数据目录里没有 `openilink.db`），脚本在服务器上从 `127.0.0.1` 注册 `admin`（随机密码，只存在服务器上），**并立即关闭公开注册**，之后才去配 nginx。
+Hub 的规则是**第一个注册的用户自动成为超级管理员，且公开注册默认开启**——站点先上公网再注册，谁先打开谁就是管理员。所以首次部署时（主机上还没有 `REVISION`，即从未成功部署过），脚本在服务器上从 `127.0.0.1` 注册 `admin`（随机密码，只存在服务器上），用 `/api/me` 确认拿到的是 `superadmin` 后**立即关闭公开注册**，之后才去配 nginx。没拿到超级管理员时只记警告，不要发布站点，先查原因。
 
 密码**不经过本机**，需要时让用户自己看：
 
@@ -129,6 +129,11 @@ ssh xdimspace-01 'cd /opt/openilink-hub && sqlite3 data/openilink.db ".backup /r
 ```
 
 或先 `docker compose -p openilink-hub stop`。`site.env` 里的 `SECRET` **单独**保存——丢了它，已登录会话和加密存储的 token 全部失效。
+
+## 踩过的坑
+
+- **macOS 打包带出 `._*` 文件**：BSD tar 会把扩展属性写成 AppleDouble 文件，`migrations/._0001_initial.sql` 会被迁移工具当成迁移解析而启动失败。脚本用 `COPYFILE_DISABLE=1`、排除 `._*`，并在主机上再删一遍。
+- **xdimspace-01 拉不到 `node` 镜像、Alpine 官方源极慢**：所以前端在本机构建，`Dockerfile.deploy` 用阿里云 Alpine 镜像与 `goproxy.cn`。首次构建约 5 分钟（下载 Go 依赖），之后有缓存。
 
 ## 红线
 

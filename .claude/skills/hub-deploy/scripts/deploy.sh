@@ -108,7 +108,10 @@ fi
 
 echo "==> uploading source (+ built web UI)"
 ssh "$HOST" "mkdir -p '${DIR}/releases/${SHA}'"
-tar -C "$WORK" --exclude=./web/node_modules --exclude=./test.log --exclude=./web-build.log -czf - . | ssh "$HOST" "tar -xz -C '${DIR}/releases/${SHA}'"
+# COPYFILE_DISABLE: macOS tar would add AppleDouble ._* files, which the
+# embedded migration loaders then try to parse as migrations.
+COPYFILE_DISABLE=1 tar -C "$WORK" --exclude='._*' --exclude=./web/node_modules --exclude=./test.log --exclude=./web-build.log -czf - . \
+  | ssh "$HOST" "tar -xz -C '${DIR}/releases/${SHA}' 2>/dev/null && find '${DIR}/releases/${SHA}' -name '._*' -delete"
 scp -q "$SKILL/compose.deploy.yml" "$HOST:${DIR}/compose.yml"
 
 echo "==> remote build, start and health check"
@@ -137,8 +140,11 @@ if [ -n "$ORIGIN" ]; then
 fi
 grep -q '^RP_ORIGIN=' site.env || { setkv RP_ORIGIN "http://127.0.0.1:${PORT}"; setkv RP_ID "127.0.0.1"; }
 
+# First deploy = never deployed successfully here (no REVISION). A database
+# left by a failed first start does not count; the admin step below verifies
+# it really obtained the superadmin role.
 FIRST=0
-[ -s "$DATA/openilink.db" ] || FIRST=1
+[ -s REVISION ] || FIRST=1
 
 PREVIOUS="$(cat REVISION 2>/dev/null || true)"
 write_env() {
@@ -194,12 +200,16 @@ if [ "$FIRST" -eq 1 ]; then
   JAR="$(mktemp)"
   body=$(printf '{"username":"admin","password":"%s"}' "$PW")
   code=$(curl -s -o /dev/null -w '%{http_code}' -c "$JAR" -H 'Content-Type: application/json' -d "$body" "http://127.0.0.1:${PORT}/api/auth/register")
+  role=""
   if [ "$code" = 200 ] || [ "$code" = 201 ]; then
+    role=$(curl -fsS -b "$JAR" "http://127.0.0.1:${PORT}/api/me" | sed -n 's/.*"role":"\([a-z_]*\)".*/\1/p')
+  fi
+  if [ "$role" = superadmin ]; then
     curl -fsS -o /dev/null -b "$JAR" -X PUT -H 'Content-Type: application/json' -d '{"enabled":"false"}' "http://127.0.0.1:${PORT}/api/admin/config/registration" \
       && log "first administrator: admin (password in $SECRETS/admin-password); public registration disabled" \
-      || log "WARNING: admin created but closing registration failed — close it in 管理后台"
+      || log "WARNING: admin created but closing registration failed — close it in 管理后台 before publishing"
   else
-    log "WARNING: creating the admin returned HTTP ${code}; check before publishing the site"
+    log "WARNING: could not claim superadmin (register HTTP ${code}, role '${role}'); users already exist? check before publishing"
   fi
   rm -f "$JAR"
 fi
