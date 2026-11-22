@@ -97,6 +97,10 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /api/v1/channels/status", s.handleChannelStatus)
 	mux.HandleFunc("GET /api/v1/channels/media", s.handleChannelMedia)
 
+	// --- WeChat identity binding (服务号网页授权, public, token/state-authenticated) ---
+	mux.HandleFunc("GET /wx/bind", s.handleWeChatBindStart)
+	mux.HandleFunc("GET /wx/bind/callback", s.handleWeChatBindCallback)
+
 	// --- GitHub webhook (public, token-authenticated) ---
 	mux.HandleFunc("POST /api/hooks/github", s.handleGitHubWebhook)
 
@@ -159,6 +163,8 @@ func (s *Server) Handler() http.Handler {
 	protected.HandleFunc("PUT /api/bots/{id}/ai_model", s.handleSetBotAIModel)
 	protected.HandleFunc("POST /api/bots/{id}/send", s.handleBotSend)
 	protected.HandleFunc("GET /api/bots/{id}/quota", s.handleBotQuota)
+	protected.HandleFunc("POST /api/bots/{id}/wechat/bind-link", s.handleWeChatBindLink)
+	protected.HandleFunc("DELETE /api/bots/{id}/wechat/identities/{uid}", s.handleWeChatUnbind)
 	protected.HandleFunc("GET /api/bots/{id}/contacts", s.handleBotContacts)
 	protected.HandleFunc("GET /api/bots/stats", s.handleStats)
 
@@ -244,6 +250,9 @@ func (s *Server) Handler() http.Handler {
 	protected.HandleFunc("GET /api/admin/config/registry", s.requireAdmin(s.handleGetRegistryConfig))
 	protected.HandleFunc("PUT /api/admin/config/registry", s.requireAdmin(s.handleSetRegistryConfig))
 	protected.HandleFunc("GET /api/admin/config/registration", s.requireAdmin(s.handleGetRegistrationConfig))
+	protected.HandleFunc("GET /api/admin/config/wechat-mp", s.requireAdmin(s.handleGetWeChatMPConfig))
+	protected.HandleFunc("PUT /api/admin/config/wechat-mp", s.requireAdmin(s.handleSetWeChatMPConfig))
+	protected.HandleFunc("DELETE /api/admin/config/wechat-mp", s.requireAdmin(s.handleDeleteWeChatMPConfig))
 	protected.HandleFunc("PUT /api/admin/config/registration", s.requireAdmin(s.handleSetRegistrationConfig))
 
 	// App OAuth exchange (no user auth — uses PKCE or single-use code)
@@ -275,7 +284,9 @@ func (s *Server) Handler() http.Handler {
 
 	// Serve embedded frontend (production) or skip (dev mode uses vite)
 	if handler := web.Handler(); handler != nil {
-		mux.Handle("/", handler)
+		mux.Handle("/", s.withMPVerify(handler))
+	} else {
+		mux.Handle("/", s.withMPVerify(http.NotFoundHandler()))
 	}
 
 	return recovery(requestLogger(cors(mux)))

@@ -19,5 +19,6 @@ type Store interface {
 	AppLogStore
 	SessionStore
 	SendQuotaStore
+	WeChatIdentityStore
 	io.Closer
 }

@@ -601,6 +601,16 @@ func (s *Server) handleBotContacts(w http.ResponseWriter, r *http.Request) {
 		jsonError(w, "query failed", http.StatusInternalServerError)
 		return
 	}
+	// Enrich with real WeChat identities bound via 服务号网页授权.
+	ids, _ := s.Store.ListWeChatIdentities(botID)
+	type contact struct {
+		store.RecentContact
+		WeChat *store.WeChatIdentity `json:"wechat,omitempty"`
+	}
+	out := make([]contact, 0, len(contacts))
+	for _, c := range contacts {
+		out = append(out, contact{RecentContact: c, WeChat: ids[c.UserID]})
+	}
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(contacts)
+	json.NewEncoder(w).Encode(out)
 }

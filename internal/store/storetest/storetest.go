@@ -30,6 +30,7 @@ func RunAll(t *testing.T, s store.Store) {
 	t.Run("Session", func(t *testing.T) { TestSessionCRUD(t, s) })
 	t.Run("AppLifecycle", func(t *testing.T) { TestAppLifecycle(t, s) })
 	t.Run("SendQuota", func(t *testing.T) { TestSendQuota(t, s) })
+	t.Run("WeChatIdentity", func(t *testing.T) { TestWeChatIdentity(t, s) })
 }
 
 // ---------------------------------------------------------------------------

@@ -15,6 +15,8 @@ type quotaState struct {
 	quotas map[string]*store.SendQuota // "bot\x00recipient"
 	outbox []store.OutboxItem
 	seq    int64
+
+	identities map[string]*store.WeChatIdentity // "bot\x00ilink_user_id"
 }
 
 func (s *Store) qs() *quotaState {

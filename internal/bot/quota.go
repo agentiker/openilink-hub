@@ -61,6 +61,9 @@ func NewQuotaProvider(p provider.Provider, s store.Store, botID string, limit in
 // Unwrap returns the wrapped provider.
 func (q *QuotaProvider) Unwrap() provider.Provider { return q.Provider }
 
+// DefaultRecipient implements provider.DefaultRecipienter for the wrapped provider.
+func (q *QuotaProvider) DefaultRecipient() string { return q.recipient("") }
+
 // Limit returns the per-inbound allowance.
 func (q *QuotaProvider) Limit() int { return q.limit }
 

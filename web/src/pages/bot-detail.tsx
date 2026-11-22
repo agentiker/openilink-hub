@@ -47,6 +47,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { AppIcon } from "../components/app-icon";
 import { parseTools } from "../components/tools-display";
+import { WeChatContactsCard } from "@/components/wechat/wechat-contacts-card";
 import { useConfirm } from "@/components/ui/confirm-dialog";
 const DEFAULT_MODEL = "__default__";
 
@@ -432,6 +433,8 @@ export function BotDetailPage() {
           </Tooltip>
         </div>
       </div>
+
+      {id ? <WeChatContactsCard botId={id} /> : null}
 
       {/* Installed Apps + Marketplace */}
       <>

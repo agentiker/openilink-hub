@@ -60,6 +60,10 @@ vi.mock("@/hooks/use-bots", () => ({
   useSetBotAIModel: () => ({ mutate: vi.fn() }),
 }));
 
+vi.mock("@/components/wechat/wechat-contacts-card", () => ({
+  WeChatContactsCard: () => null,
+}));
+
 vi.mock("@/hooks/use-apps", () => ({
   useApps: () => ({ data: [] }),
   useAvailableModels: () => ({ data: [] }),

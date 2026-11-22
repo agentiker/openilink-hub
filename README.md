@@ -156,6 +156,14 @@ GitHub 上有不少 iLink 相关的开源项目，但大多是底层 SDK 或 Age
 > - **对方一回复即自动补发**：放不下时多条文本合并为一条「未读通知」摘要
 > - 控制台显示「对方本轮还可接收 N/10 条 · 待送达 M 条」；`GET /api/bots/{id}/quota` 查看每个接收人的额度
 
+**真实微信身份绑定（服务号网页授权）** · iLink 只给出匿名的 `ilink_user_id`，拿不到昵称、头像。配置一个已认证服务号后，可以让联系人完成一次授权绑定：
+
+1. 管理后台 →「微信服务号（身份绑定）」填写 AppID / AppSecret；在公众平台「网页授权域名」填 Hub 的公网 HTTPS 域名（`-origin` / `RP_ORIGIN`），校验文件 `MP_verify_xxx.txt` 可直接由 Hub 提供
+2. Bot 详情 →「联系人」→「发送绑定链接」（或 `POST /api/bots/{id}/wechat/bind-link {"recipient":"…","send":true}`）
+3. 对方在微信里点开链接、同意授权，Hub 记录 `ilink_user_id → openid / unionid / 昵称 / 头像`，联系人列表即显示真实昵称
+
+链接 24 小时内有效、签名防篡改；身份按 Bot 隔离保存。微信号本身任何官方接口都拿不到。
+
 **多通道消息下发**
 - **App** — 已安装的 App 自动接收匹配的消息，通过 WebSocket 或 Webhook 投递
 - **WebSocket** — 毫秒级实时推送

@@ -7,6 +7,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"io"
 	"mime/multipart"
 	"net/http"
 	"net/http/cookiejar"
@@ -29,6 +30,7 @@ import (
 	"github.com/openilink/openilink-hub/internal/relay"
 	"github.com/openilink/openilink-hub/internal/sink"
 	"github.com/openilink/openilink-hub/internal/storage"
+	"github.com/openilink/openilink-hub/internal/wechatmp"
 	"github.com/openilink/openilink-hub/internal/store"
 	"github.com/openilink/openilink-hub/internal/store/postgres"
 )
@@ -3259,5 +3261,152 @@ func TestSendQuotaQueueAndFlush(t *testing.T) {
 	_, msgs = env.get("/api/bots/" + botObj.ID + "/messages")
 	if mq, _ := msgs["quota"].(map[string]any); mq["remaining"] != float64(8) || mq["pending"] != float64(0) {
 		t.Errorf("after flush quota = %v", mq)
+	}
+}
+
+// ==================== WeChat identity binding (服务号网页授权) ====================
+
+func TestWeChatIdentityBinding(t *testing.T) {
+	wx := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/sns/oauth2/access_token":
+			if r.URL.Query().Get("appid") != "wxtestapp" || r.URL.Query().Get("secret") != "wxsecret" || r.URL.Query().Get("code") != "good-code" {
+				w.Write([]byte(`{"errcode":40029,"errmsg":"invalid code"}`))
+				return
+			}
+			w.Write([]byte(`{"access_token":"at","expires_in":7200,"openid":"o-zhang","scope":"snsapi_userinfo","unionid":"un-zhang"}`))
+		case "/sns/userinfo":
+			w.Write([]byte(`{"openid":"o-zhang","nickname":"张三<b>","headimgurl":"https://thirdwx.qlogo.cn/mmopen/x/132","unionid":"un-zhang"}`))
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer wx.Close()
+	oldAPI := wechatmp.APIBase
+	wechatmp.APIBase = wx.URL
+	defer func() { wechatmp.APIBase = oldAPI }()
+
+	env := setup(t)
+	defer env.close()
+	env.register("wxbinder", "password123") // first user → superadmin
+	owner := "owner@im.wechat"
+	creds, _ := json.Marshal(mockserver.Credentials{BotID: "b", BotToken: "t", ILinkUserID: owner})
+	botObj, _ := env.db.CreateBot(env.userID(), "WXBot", "mock", "", creds)
+	env.mgr.StartBot(context.Background(), botObj)
+	inst, _ := env.mgr.GetInstance(botObj.ID)
+	engine := inst.Provider.(*mockserver.Provider).Engine()
+	engine.InjectInbound(mockserver.InboundRequest{Sender: owner, Text: "hi"})
+	time.Sleep(100 * time.Millisecond)
+
+	// Not configured yet.
+	code, _ := env.postCode("/api/bots/"+botObj.ID+"/wechat/bind-link", map[string]any{})
+	assertCode(t, "bind-link unconfigured", code, 412)
+
+	// Admin configures the 服务号.
+	cfgCode, cfgResp := env.put("/api/admin/config/wechat-mp", map[string]string{
+		"app_id": "wxtestapp", "app_secret": "wxsecret", "verify_file": "MP_verify_AbC123.txt",
+	})
+	if cfgCode != 200 || cfgResp["enabled"] != true || cfgResp["app_secret"] == "wxsecret" || cfgResp["scope"] != "snsapi_userinfo" {
+		t.Fatalf("config: %d %v", cfgCode, cfgResp)
+	}
+
+	// Domain verification file.
+	vr := httpGet(t, env.srv.URL+"/MP_verify_AbC123.txt")
+	body, _ := io.ReadAll(vr.Body)
+	vr.Body.Close()
+	if vr.StatusCode != 200 || string(body) != "AbC123" {
+		t.Errorf("verify file: %d %q", vr.StatusCode, body)
+	}
+
+	// Owner creates and sends a bind link (default recipient = owner).
+	code, link := env.postCode("/api/bots/"+botObj.ID+"/wechat/bind-link", map[string]any{"send": true})
+	assertCode(t, "bind-link", code, 200)
+	url, _ := link["url"].(string)
+	if link["sent"] != true || link["recipient"] != owner || !strings.Contains(url, "/wx/bind?t=") {
+		t.Fatalf("bind-link = %v", link)
+	}
+	sent := engine.SentMessages()
+	if len(sent) == 0 || !strings.Contains(sent[len(sent)-1].Text, url) {
+		t.Fatalf("link not sent via bot: %+v", sent)
+	}
+	path := url[strings.Index(url, "/wx/bind"):]
+
+	noRedirect := &http.Client{CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
+	get := func(p, ua string) (*http.Response, string) {
+		req, _ := http.NewRequest("GET", env.srv.URL+p, nil)
+		if ua != "" {
+			req.Header.Set("User-Agent", ua)
+		}
+		r, err := noRedirect.Do(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		b, _ := io.ReadAll(r.Body)
+		r.Body.Close()
+		return r, string(b)
+	}
+	const wechatUA = "Mozilla/5.0 (iPhone) MicroMessenger/8.0.50"
+
+	if r, b := get(path, "Mozilla/5.0 Chrome"); r.StatusCode != 200 || !strings.Contains(b, "请在微信中打开") {
+		t.Errorf("non-wechat browser: %d %s", r.StatusCode, b)
+	}
+	if r, _ := get(path[:len(path)-3]+"xyz", wechatUA); r.StatusCode != 400 {
+		t.Errorf("tampered token: %d", r.StatusCode)
+	}
+
+	r, _ := get(path, wechatUA)
+	loc := r.Header.Get("Location")
+	if r.StatusCode != 302 || !strings.HasPrefix(loc, "https://open.weixin.qq.com/connect/oauth2/authorize?appid=wxtestapp&") ||
+		!strings.Contains(loc, "scope=snsapi_userinfo") || !strings.HasSuffix(loc, "#wechat_redirect") {
+		t.Fatalf("authorize redirect: %d %s", r.StatusCode, loc)
+	}
+	state := loc[strings.Index(loc, "state=")+6 : strings.Index(loc, "#")]
+
+	// Bad code → error page, state consumed.
+	if r, _ := get("/wx/bind/callback?code=bad&state="+state, wechatUA); r.StatusCode != 502 {
+		t.Errorf("bad code: %d", r.StatusCode)
+	}
+	if r, _ := get("/wx/bind/callback?code=good-code&state="+state, wechatUA); r.StatusCode != 400 {
+		t.Errorf("reused state: %d", r.StatusCode)
+	}
+
+	// Real flow.
+	r, _ = get(path, wechatUA)
+	loc = r.Header.Get("Location")
+	state = loc[strings.Index(loc, "state=")+6 : strings.Index(loc, "#")]
+	r, b := get("/wx/bind/callback?code=good-code&state="+state, wechatUA)
+	if r.StatusCode != 200 || !strings.Contains(b, "绑定成功") || !strings.Contains(b, "张三&lt;b&gt;") {
+		t.Fatalf("callback: %d %s", r.StatusCode, b)
+	}
+
+	id, _ := env.db.GetWeChatIdentity(botObj.ID, owner)
+	if id == nil || id.OpenID != "o-zhang" || id.UnionID != "un-zhang" || id.Nickname != "张三<b>" || id.AppID != "wxtestapp" {
+		t.Fatalf("stored identity = %+v", id)
+	}
+
+	// Contacts show the identity.
+	code, contacts := env.getList("/api/bots/" + botObj.ID + "/contacts")
+	assertCode(t, "contacts", code, 200)
+	found := false
+	for _, c := range contacts {
+		m := c.(map[string]any)
+		if m["user_id"] == owner {
+			wxm, _ := m["wechat"].(map[string]any)
+			found = wxm["nickname"] == "张三<b>" && wxm["unionid"] == "un-zhang"
+		}
+	}
+	if !found {
+		t.Errorf("contacts missing wechat identity: %v", contacts)
+	}
+
+	// Unbind.
+	req, _ := http.NewRequest("DELETE", env.srv.URL+"/api/bots/"+botObj.ID+"/wechat/identities/"+owner, nil)
+	dr, _ := env.client.Do(req)
+	dr.Body.Close()
+	if dr.StatusCode != 204 {
+		t.Errorf("unbind: %d", dr.StatusCode)
+	}
+	if id, _ := env.db.GetWeChatIdentity(botObj.ID, owner); id != nil {
+		t.Error("identity not deleted")
 	}
 }

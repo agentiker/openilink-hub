@@ -16,6 +16,34 @@ export interface Bot {
   extra?: Record<string, any>;
 }
 
+/** Real WeChat identity bound through 服务号网页授权. */
+export interface WeChatIdentity {
+  ilink_user_id: string;
+  app_id: string;
+  openid: string;
+  unionid?: string;
+  nickname?: string;
+  avatar_url?: string;
+  updated_at: number;
+}
+
+export interface BotContact {
+  user_id: string;
+  last_msg_at: number;
+  msg_count: number;
+  wechat?: WeChatIdentity;
+}
+
+export interface WeChatMPConfig {
+  app_id: string;
+  app_secret: string;
+  scope: "snsapi_userinfo" | "snsapi_base";
+  verify_file: string;
+  enabled: boolean;
+  source: "db" | "env" | "";
+  callback_url: string;
+}
+
 /** Per-recipient iLink send allowance (10 per message the recipient sends). */
 export interface SendQuota {
   recipient: string;
@@ -140,7 +168,29 @@ export const api = {
       method: "PUT",
       body: JSON.stringify({ model }),
     }),
-  botContacts: (id: string) => request<any[]>(`/api/bots/${id}/contacts`),
+  botContacts: (id: string) => request<BotContact[]>(`/api/bots/${id}/contacts`),
+  wechatBindLink: (id: string, data: { recipient?: string; send?: boolean; text?: string }) =>
+    request<{
+      url: string;
+      expires_at: number;
+      recipient: string;
+      sent: boolean;
+      queued?: boolean;
+    }>(`/api/bots/${id}/wechat/bind-link`, { method: "POST", body: JSON.stringify(data) }),
+  wechatUnbind: (id: string, uid: string) =>
+    request(`/api/bots/${id}/wechat/identities/${encodeURIComponent(uid)}`, { method: "DELETE" }),
+  getWeChatMPConfig: () => request<WeChatMPConfig>("/api/admin/config/wechat-mp"),
+  setWeChatMPConfig: (data: {
+    app_id: string;
+    app_secret?: string;
+    scope?: string;
+    verify_file?: string;
+  }) =>
+    request<WeChatMPConfig>("/api/admin/config/wechat-mp", {
+      method: "PUT",
+      body: JSON.stringify(data),
+    }),
+  deleteWeChatMPConfig: () => request("/api/admin/config/wechat-mp", { method: "DELETE" }),
 
   // Channels (under bots)
   listChannels: (botId: string) => request<any[]>(`/api/bots/${botId}/channels`),
