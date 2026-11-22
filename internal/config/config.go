@@ -35,7 +35,7 @@ func Parse() *Config {
 	flag.StringVar(&cfg.DBPath, "db", envOr("DATABASE_URL", DefaultDBPath()), "database path or PostgreSQL URL")
 	flag.StringVar(&cfg.RPOrigin, "origin", envOr("RP_ORIGIN", "http://localhost:9800"), "WebAuthn RP origin")
 	flag.StringVar(&cfg.RPID, "rpid", envOr("RP_ID", "localhost"), "WebAuthn RP ID")
-	flag.StringVar(&cfg.RPName, "rpname", envOr("RP_NAME", "OpeniLink Hub"), "WebAuthn RP display name")
+	flag.StringVar(&cfg.RPName, "rpname", envOr("RP_NAME", "Hi微连"), "WebAuthn RP display name")
 	flag.StringVar(&cfg.Secret, "secret", envOr("SECRET", "change-me-in-production"), "server secret")
 	// Storage
 	cfg.StorageEndpoint = envOr("STORAGE_ENDPOINT", "")

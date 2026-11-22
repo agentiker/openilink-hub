@@ -19,10 +19,10 @@ import (
 // setupMCP creates the MCP server and returns an http.Handler for the /mcp endpoint.
 func (s *Server) setupMCP() http.Handler {
 	mcpSrv := server.NewMCPServer(
-		"OpeniLink Hub",
+		"Hi微连",
 		s.Version,
 		server.WithToolCapabilities(false),
-		server.WithInstructions("OpeniLink Hub MCP Server. Use these tools to send messages and manage contacts through your Bot."),
+		server.WithInstructions("Hi微连 MCP Server. Use these tools to send messages and manage contacts through your Bot."),
 	)
 
 	// send_message — send text or media through the Bot

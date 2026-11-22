@@ -282,7 +282,7 @@ func runDiscovery(ctx context.Context, hubVersion, serverURL string, headers map
 	initResult, ierr := c.Initialize(ctx, mcp.InitializeRequest{
 		Params: mcp.InitializeParams{
 			ClientInfo: mcp.Implementation{
-				Name:    "OpeniLink Hub",
+				Name:    "Hi微连",
 				Version: version,
 			},
 			ProtocolVersion: mcp.LATEST_PROTOCOL_VERSION,

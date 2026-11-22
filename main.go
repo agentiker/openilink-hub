@@ -57,7 +57,7 @@ func main() {
 	if len(os.Args) > 1 {
 		switch os.Args[1] {
 		case "version":
-			fmt.Printf("oih (OpeniLink Hub) %s (%s, %s)\n", version, commit, date)
+			fmt.Printf("oih (Hi微连) %s (%s, %s)\n", version, commit, date)
 			return
 		case "install":
 			listen := ":9800"
@@ -223,7 +223,7 @@ func main() {
 		httpSrv.Shutdown(shutCtx)
 	}()
 
-	fmt.Printf("OpeniLink Hub %s (%s, %s) running on http://localhost%s\n", version, commit, date, cfg.ListenAddr)
+	fmt.Printf("Hi微连 %s (%s, %s) running on http://localhost%s\n", version, commit, date, cfg.ListenAddr)
 	fmt.Printf("Data: %s\n", config.DataDir())
 	if err := httpSrv.ListenAndServe(); err != http.ErrServerClosed {
 		slog.Error("server error", "err", err)

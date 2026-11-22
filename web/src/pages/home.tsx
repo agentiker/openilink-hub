@@ -5,6 +5,7 @@ import { Card } from "../components/ui/card";
 import { HexagonBackground } from "../components/ui/hexagon-background";
 import { cn } from "../lib/utils";
 import { Bot, Webhook, Cable, Shield, Zap } from "lucide-react";
+import { HiLogo, HiLogoMark } from "@/components/brand/hi-logo";
 import { useUser } from "@/hooks/use-auth";
 
 const features = [
@@ -64,7 +65,7 @@ export function HomePage() {
               : "border border-white/5 bg-[linear-gradient(to_bottom,rgba(255,255,255,0.05),rgba(255,255,255,0.015))] py-3 shadow-[0_10px_30px_rgba(0,0,0,0.16)] backdrop-blur-md",
           )}
         >
-          <span className="text-base font-semibold tracking-tight">OpeniLink Hub</span>
+          <HiLogo className="text-base" />
           <div className="flex items-center gap-3">
             {loggedIn ? (
               <Link to="/dashboard">
@@ -92,9 +93,10 @@ export function HomePage() {
       <main className="relative z-10 flex-1 space-y-8 pb-20 sm:space-y-10 sm:pb-24">
         {/* Hero */}
         <section className="mx-auto max-w-3xl px-6 py-20 text-center sm:px-8 sm:py-24 lg:py-28">
-          <h1 className="text-4xl font-bold tracking-tight sm:text-5xl">OpeniLink Hub</h1>
+          <HiLogoMark className="mx-auto mb-6 size-20 drop-shadow-xl" />
+          <h1 className="text-4xl font-bold tracking-tight sm:text-5xl">Hi微连</h1>
           <p className="mt-5 text-base leading-8 text-muted-foreground sm:text-lg">
-            开源的微信 Bot 管理与消息中继平台。连接你的微信，通过 WebSocket、HTTP API 或 Webhook
+            微信 Bot 管理与消息中继平台。连接你的微信，通过 WebSocket、HTTP API 或 Webhook
             接收和发送消息。
           </p>
           <div className="mt-8 flex justify-center gap-4 sm:mt-10">
@@ -103,7 +105,7 @@ export function HomePage() {
                 开始使用
               </Button>
             </Link>
-            <a href="https://github.com/openilink/openilink-hub" target="_blank" rel="noopener">
+            <a href="https://github.com/agentiker/openilink-hub" target="_blank" rel="noopener">
               <Button variant="outline" size="lg" className="px-5 text-sm">
                 GitHub
               </Button>
@@ -166,14 +168,14 @@ export function HomePage() {
 
       <footer className="relative z-10 border-t border-white/8 px-6 py-6 text-center text-sm text-muted-foreground sm:px-8">
         <a
-          href="https://github.com/openilink/openilink-hub"
+          href="https://github.com/agentiker/openilink-hub"
           target="_blank"
           rel="noopener"
           className="hover:text-primary"
         >
-          OpeniLink Hub
+          Hi微连
         </a>
-        {" · "}开源微信消息平台
+        {" · "}微信消息平台（基于开源项目 OpeniLink Hub）
       </footer>
     </div>
   );
