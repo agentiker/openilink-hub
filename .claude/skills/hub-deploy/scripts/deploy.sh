@@ -117,7 +117,8 @@ scp -q "$SKILL/compose.deploy.yml" "$HOST:${DIR}/compose.yml"
 echo "==> remote build, start and health check"
 ssh "$HOST" "bash -s" -- "$DIR" "$SHA" "$PORT" "$KEEP" "$ORIGIN" <<'REMOTE'
 set -euo pipefail
-DIR="$1"; SHA="$2"; PORT="$3"; KEEP="$4"; ORIGIN="$5"
+# ssh joins arguments with spaces, so an empty ORIGIN arrives as no $5.
+DIR="$1"; SHA="$2"; PORT="$3"; KEEP="$4"; ORIGIN="${5:-}"
 SHORT="${SHA:0:12}"
 PROJECT=openilink-hub
 DATA="$DIR/data"
