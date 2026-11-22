@@ -105,11 +105,6 @@ export function HomePage() {
                 开始使用
               </Button>
             </Link>
-            <a href="https://github.com/agentiker/openilink-hub" target="_blank" rel="noopener">
-              <Button variant="outline" size="lg" className="px-5 text-sm">
-                GitHub
-              </Button>
-            </a>
           </div>
         </section>
 
@@ -167,15 +162,7 @@ export function HomePage() {
       </main>
 
       <footer className="relative z-10 border-t border-white/8 px-6 py-6 text-center text-sm text-muted-foreground sm:px-8">
-        <a
-          href="https://github.com/agentiker/openilink-hub"
-          target="_blank"
-          rel="noopener"
-          className="hover:text-primary"
-        >
-          Hi微连
-        </a>
-        {" · "}微信消息平台（基于开源项目 OpeniLink Hub）
+        Hi微连 · 微信消息平台
       </footer>
     </div>
   );

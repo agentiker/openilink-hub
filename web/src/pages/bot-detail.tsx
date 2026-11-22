@@ -49,6 +49,8 @@ import { AppIcon } from "../components/app-icon";
 import { parseTools } from "../components/tools-display";
 import { WeChatContactsCard } from "@/components/wechat/wechat-contacts-card";
 import { useConfirm } from "@/components/ui/confirm-dialog";
+import { MemberBotDetail } from "@/components/member/member-bot-detail";
+import { isAdminRole, useAuthStore } from "@/stores/auth-store";
 const DEFAULT_MODEL = "__default__";
 
 // ==================== Page ====================
@@ -63,7 +65,18 @@ function formatRelativeTime(ts: number) {
   return `${Math.floor(diff / 86400)}天前`;
 }
 
+/**
+ * Bot page. Administrators get the full management view (console, traces,
+ * AI replies, apps, reminders); regular users get the simplified view with
+ * the bot's basic information and message history.
+ */
 export function BotDetailPage() {
+  const { id } = useParams<{ id: string }>();
+  const isAdmin = useAuthStore((s) => isAdminRole(s.user?.role));
+  return isAdmin ? <AdminBotDetail /> : <MemberBotDetail id={id!} />;
+}
+
+function AdminBotDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { toast } = useToast();

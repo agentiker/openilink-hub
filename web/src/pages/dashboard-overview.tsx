@@ -16,6 +16,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useBotStats } from "@/hooks/use-bots";
+import { isAdminRole, useAuthStore } from "@/stores/auth-store";
 
 const STEPS = [
   {
@@ -53,8 +54,47 @@ const QUICK_LINKS = [
   { label: "系统设置", icon: Cpu, link: "/dashboard/settings/profile" },
 ] as const;
 
+/** Regular users: the two-stage onboarding instead of forwarding rules/apps. */
+const MEMBER_STEPS = [
+  {
+    step: "01",
+    title: "扫码注册",
+    desc: "在电脑上打开登录页，用手机微信「扫一扫」绑定 Bot。",
+    link: "/dashboard/accounts",
+    icon: Cpu,
+    color: "text-blue-500",
+    bg: "bg-blue-500/10",
+  },
+  {
+    step: "02",
+    title: "身份绑定",
+    desc: "在微信里给 Bot 发一句话，点开 Bot 发来的身份绑定链接。",
+    link: "/dashboard/accounts",
+    icon: MessageSquare,
+    color: "text-emerald-500",
+    bg: "bg-emerald-500/10",
+  },
+  {
+    step: "03",
+    title: "一键登录",
+    desc: "以后在手机微信里打开登录入口即可直接登录。",
+    link: "/dashboard/accounts",
+    icon: Zap,
+    color: "text-orange-500",
+    bg: "bg-orange-500/10",
+  },
+] as const;
+
+const MEMBER_QUICK_LINKS = [
+  { label: "全部账号", icon: Bot, link: "/dashboard/accounts" },
+  { label: "个人设置", icon: Cpu, link: "/dashboard/settings/profile" },
+] as const;
+
 export function DashboardOverviewPage() {
   const { data: stats, isLoading: loading } = useBotStats();
+  const isAdmin = useAuthStore((s) => isAdminRole(s.user?.role));
+  const steps = isAdmin ? STEPS : MEMBER_STEPS;
+  const quickLinks = isAdmin ? QUICK_LINKS : MEMBER_QUICK_LINKS;
 
   if (loading)
     return (
@@ -141,14 +181,45 @@ export function DashboardOverviewPage() {
             badge: false,
             link: null,
           },
-        ].map((m, i) => (
-          <Card
-            key={i}
-            className={`border-border/50 bg-card/50 hover:bg-card transition-colors${m.link ? " cursor-pointer" : " cursor-default"}`}
-            {...(m.link ? { onClick: undefined } : {})}
-          >
-            {m.link ? (
-              <Link to={m.link} className="block">
+        ]
+          // Apps and WebSocket connections are administrator concerns.
+          .filter((m) => isAdmin || m.label === "在线账号" || m.label === "消息总量")
+          .map((m, i) => (
+            <Card
+              key={i}
+              className={`border-border/50 bg-card/50 hover:bg-card transition-colors${m.link ? " cursor-pointer" : " cursor-default"}`}
+              {...(m.link ? { onClick: undefined } : {})}
+            >
+              {m.link ? (
+                <Link to={m.link} className="block">
+                  <CardContent className="p-5">
+                    <div className="flex items-start justify-between mb-3">
+                      <div
+                        className={`h-8 w-8 rounded-lg ${m.bg} flex items-center justify-center ${m.color}`}
+                      >
+                        <m.icon className="h-4 w-4" />
+                      </div>
+                      {m.badge ? (
+                        <Badge
+                          variant="outline"
+                          className="text-[10px] h-5 px-1.5 text-emerald-600 border-emerald-200 bg-emerald-50 dark:bg-emerald-950/30 dark:border-emerald-800 dark:text-emerald-400"
+                        >
+                          在线
+                        </Badge>
+                      ) : null}
+                    </div>
+                    <div className="space-y-0.5">
+                      <div className="text-2xl font-bold tabular-nums">
+                        {m.value.toLocaleString()}
+                      </div>
+                      <div className="flex items-baseline gap-1.5">
+                        <p className="text-xs font-semibold text-foreground/80">{m.label}</p>
+                        <span className="text-[10px] text-muted-foreground">{m.sub}</span>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Link>
+              ) : (
                 <CardContent className="p-5">
                   <div className="flex items-start justify-between mb-3">
                     <div
@@ -156,14 +227,6 @@ export function DashboardOverviewPage() {
                     >
                       <m.icon className="h-4 w-4" />
                     </div>
-                    {m.badge ? (
-                      <Badge
-                        variant="outline"
-                        className="text-[10px] h-5 px-1.5 text-emerald-600 border-emerald-200 bg-emerald-50 dark:bg-emerald-950/30 dark:border-emerald-800 dark:text-emerald-400"
-                      >
-                        在线
-                      </Badge>
-                    ) : null}
                   </div>
                   <div className="space-y-0.5">
                     <div className="text-2xl font-bold tabular-nums">
@@ -175,27 +238,9 @@ export function DashboardOverviewPage() {
                     </div>
                   </div>
                 </CardContent>
-              </Link>
-            ) : (
-              <CardContent className="p-5">
-                <div className="flex items-start justify-between mb-3">
-                  <div
-                    className={`h-8 w-8 rounded-lg ${m.bg} flex items-center justify-center ${m.color}`}
-                  >
-                    <m.icon className="h-4 w-4" />
-                  </div>
-                </div>
-                <div className="space-y-0.5">
-                  <div className="text-2xl font-bold tabular-nums">{m.value.toLocaleString()}</div>
-                  <div className="flex items-baseline gap-1.5">
-                    <p className="text-xs font-semibold text-foreground/80">{m.label}</p>
-                    <span className="text-[10px] text-muted-foreground">{m.sub}</span>
-                  </div>
-                </div>
-              </CardContent>
-            )}
-          </Card>
-        ))}
+              )}
+            </Card>
+          ))}
       </div>
 
       {(stats?.online_bots ?? 0) === 0 ? (
@@ -229,7 +274,7 @@ export function DashboardOverviewPage() {
           </CardHeader>
           <CardContent className="p-0">
             <div className="divide-y divide-border/50">
-              {STEPS.map((item, i) => (
+              {steps.map((item, i) => (
                 <Link
                   key={i}
                   to={item.link}
@@ -264,7 +309,7 @@ export function DashboardOverviewPage() {
               <CardDescription className="text-xs">常用功能直达</CardDescription>
             </CardHeader>
             <CardContent className="grid grid-cols-2 gap-2 pt-0">
-              {QUICK_LINKS.map((item) => (
+              {quickLinks.map((item) => (
                 <Button
                   key={item.link}
                   variant="outline"

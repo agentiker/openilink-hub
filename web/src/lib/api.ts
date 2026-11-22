@@ -188,6 +188,8 @@ export const api = {
       method: "PUT",
       body: JSON.stringify({ model }),
     }),
+  botWeChatUser: (id: string) =>
+    request<{ ilink_user_id?: string; wechat?: WeChatIdentity }>(`/api/bots/${id}/wechat-user`),
   botContacts: (id: string) => request<BotContact[]>(`/api/bots/${id}/contacts`),
   wechatBindLink: (id: string, data: { recipient?: string; send?: boolean; text?: string }) =>
     request<{

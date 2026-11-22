@@ -3575,6 +3575,13 @@ func TestBotAdminPermissions(t *testing.T) {
 	if code, _ := member.get("/api/bots/" + adminBot.ID + "/messages"); code != 404 {
 		t.Errorf("member GET admin bot = %d, want 404", code)
 	}
+	// The simplified user-side page reads the WeChat user behind a bot.
+	if code, r := member.get("/api/bots/" + memberBot.ID + "/wechat-user"); code != 200 || r["ilink_user_id"] != "member@im.wechat" {
+		t.Errorf("member wechat-user = %d %v", code, r)
+	}
+	if code, _ := member.get("/api/bots/" + adminBot.ID + "/wechat-user"); code != 404 {
+		t.Errorf("member wechat-user of admin bot = %d, want 404", code)
+	}
 	if code, _ := member.postCode("/api/bots/"+memberBot.ID+"/wechat/bind-link", map[string]any{}); code != 403 {
 		t.Errorf("member bind-link on own bot = %d, want 403", code)
 	}

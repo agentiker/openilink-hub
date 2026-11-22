@@ -32,6 +32,7 @@ import { OnboardingPage } from "./pages/onboarding";
 import { InstallationDetailPage } from "./pages/installation-detail";
 import { InstallAppPage } from "./pages/install-app";
 import { DeveloperAppsPage } from "./pages/developer-apps";
+import { AdminOnly } from "./components/admin-only";
 
 function RouterProgress() {
   useAnchorProgress({ startOnLoad: false });
@@ -64,29 +65,120 @@ createRoot(document.getElementById("root")!).render(
                     <Route path="onboarding" element={<OnboardingPage />} />
                     <Route path="accounts" element={<BotsPage />} />
                     <Route path="accounts/:id" element={<BotDetailPage />} />
-                    <Route path="accounts/:id/apps/:iid" element={<InstallationDetailPage />} />
-                    <Route path="accounts/:id/install/:appId" element={<InstallAppPage />} />
-                    <Route path="accounts/:id/traces" element={<TracesPage />} />
-                    <Route path="accounts/:id/traces/:traceId" element={<TraceDetailPage />} />
-                    <Route path="accounts/:id/console" element={<ConsolePage />} />
+                    <Route
+                      path="accounts/:id/apps/:iid"
+                      element={
+                        <AdminOnly>
+                          <InstallationDetailPage />
+                        </AdminOnly>
+                      }
+                    />
+                    <Route
+                      path="accounts/:id/install/:appId"
+                      element={
+                        <AdminOnly>
+                          <InstallAppPage />
+                        </AdminOnly>
+                      }
+                    />
+                    <Route
+                      path="accounts/:id/traces"
+                      element={
+                        <AdminOnly>
+                          <TracesPage />
+                        </AdminOnly>
+                      }
+                    />
+                    <Route
+                      path="accounts/:id/traces/:traceId"
+                      element={
+                        <AdminOnly>
+                          <TraceDetailPage />
+                        </AdminOnly>
+                      }
+                    />
+                    <Route
+                      path="accounts/:id/console"
+                      element={
+                        <AdminOnly>
+                          <ConsolePage />
+                        </AdminOnly>
+                      }
+                    />
 
                     {/* Apps */}
-                    <Route path="apps" element={<AppsPage />} />
-                    <Route path="apps/:id" element={<AppDetailPage />} />
+                    <Route
+                      path="apps"
+                      element={
+                        <AdminOnly>
+                          <AppsPage />
+                        </AdminOnly>
+                      }
+                    />
+                    <Route
+                      path="apps/:id"
+                      element={
+                        <AdminOnly>
+                          <AppDetailPage />
+                        </AdminOnly>
+                      }
+                    />
 
                     {/* Developer */}
-                    <Route path="developer/apps" element={<DeveloperAppsPage />} />
-                    <Route path="developer/apps/:id" element={<AppDetailPage />} />
+                    <Route
+                      path="developer/apps"
+                      element={
+                        <AdminOnly>
+                          <DeveloperAppsPage />
+                        </AdminOnly>
+                      }
+                    />
+                    <Route
+                      path="developer/apps/:id"
+                      element={
+                        <AdminOnly>
+                          <AppDetailPage />
+                        </AdminOnly>
+                      }
+                    />
 
                     {/* Domain 4: Management & Ops */}
                     <Route
                       path="admin"
                       element={<Navigate to="/dashboard/admin/overview" replace />}
                     />
-                    <Route path="admin/overview" element={<AdminOverviewPage />} />
-                    <Route path="admin/users" element={<AdminUsersPage />} />
-                    <Route path="admin/bots" element={<AdminBotsPage />} />
-                    <Route path="admin/reviews" element={<AdminReviewsPage />} />
+                    <Route
+                      path="admin/overview"
+                      element={
+                        <AdminOnly>
+                          <AdminOverviewPage />
+                        </AdminOnly>
+                      }
+                    />
+                    <Route
+                      path="admin/users"
+                      element={
+                        <AdminOnly>
+                          <AdminUsersPage />
+                        </AdminOnly>
+                      }
+                    />
+                    <Route
+                      path="admin/bots"
+                      element={
+                        <AdminOnly>
+                          <AdminBotsPage />
+                        </AdminOnly>
+                      }
+                    />
+                    <Route
+                      path="admin/reviews"
+                      element={
+                        <AdminOnly>
+                          <AdminReviewsPage />
+                        </AdminOnly>
+                      }
+                    />
                     <Route path="settings" element={<SettingsPage />}>
                       <Route index element={<Navigate to="profile" replace />} />
                       <Route path="profile" element={null} />

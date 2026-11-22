@@ -4,6 +4,7 @@ import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { BotDetailPage } from "./bot-detail";
+import { useAuthStore } from "@/stores/auth-store";
 
 const navigateMock = vi.fn();
 const confirmMock = vi.fn();
@@ -60,6 +61,10 @@ vi.mock("@/hooks/use-bots", () => ({
   useSetBotAIModel: () => ({ mutate: vi.fn() }),
 }));
 
+vi.mock("@/components/member/member-bot-detail", () => ({
+  MemberBotDetail: () => <div data-testid="member-bot-detail" />,
+}));
+
 vi.mock("@/components/wechat/wechat-contacts-card", () => ({
   WeChatContactsCard: () => null,
 }));
@@ -102,6 +107,8 @@ describe("BotDetailPage", () => {
     document.body.appendChild(container);
     root = createRoot(container);
     confirmMock.mockResolvedValue(true);
+    // These tests cover the full (administrator) bot page.
+    useAuthStore.setState({ user: { id: "u1", username: "admin", role: "superadmin" } as any });
     deleteBotMock.mockResolvedValue({ ok: true });
   });
 
@@ -134,6 +141,14 @@ describe("BotDetailPage", () => {
       deleteButton?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     });
   }
+
+  it("regular users get the simplified page, not the management view", async () => {
+    useAuthStore.setState({ user: { id: "u2", username: "m", role: "member" } as any });
+    await act(async () => root.render(<BotDetailPage />));
+    expect(container.querySelector('[data-testid="member-bot-detail"]')).not.toBeNull();
+    expect(container.textContent).not.toContain("消息控制台");
+    expect(container.textContent).not.toContain("AI 回复");
+  });
 
   it("shows the expiry reminder controls instead of misleading auto-renew wording", async () => {
     await renderPage();

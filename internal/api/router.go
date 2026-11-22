@@ -171,6 +171,7 @@ func (s *Server) Handler() http.Handler {
 	protected.HandleFunc("POST /api/bots/{id}/wechat/bind-link", s.requireAdmin(s.handleWeChatBindLink))
 	protected.HandleFunc("DELETE /api/bots/{id}/wechat/identities/{uid}", s.requireAdmin(s.handleWeChatUnbind))
 	protected.HandleFunc("GET /api/bots/{id}/contacts", s.handleBotContacts)
+	protected.HandleFunc("GET /api/bots/{id}/wechat-user", s.handleBotWeChatUser)
 	protected.HandleFunc("GET /api/bots/stats", s.handleStats)
 
 	// Messages (under bots)

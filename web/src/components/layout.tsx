@@ -6,7 +6,6 @@ import { useAuthStore } from "@/stores/auth-store";
 import { HiLogo, HiLogoMark } from "@/components/brand/hi-logo";
 import {
   LogOut,
-  Github,
   Bot,
   ShieldCheck,
   Sun,
@@ -20,7 +19,6 @@ import {
   Circle,
   House,
   Code2,
-  ShieldAlert,
   X,
 } from "lucide-react";
 import { api, botDisplayName } from "../lib/api";
@@ -211,20 +209,6 @@ function LayoutHeader() {
           </Tooltip>
           <Tooltip>
             <TooltipTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-9 w-9" asChild>
-                <a
-                  href="https://github.com/agentiker/openilink-hub"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  <Github className="h-4 w-4" />
-                </a>
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>GitHub 项目</TooltipContent>
-          </Tooltip>
-          <Tooltip>
-            <TooltipTrigger asChild>
               <Button variant="ghost" size="icon" className="h-9 w-9 relative">
                 <Zap className="h-4 w-4 text-yellow-500 fill-yellow-500/20" />
                 <span className="absolute top-2 right-2 size-2 bg-primary rounded-full border-2 border-background animate-pulse" />
@@ -235,31 +219,6 @@ function LayoutHeader() {
         </div>
       </TooltipProvider>
     </header>
-  );
-}
-
-function SecurityBanner() {
-  const [dismissed, setDismissed] = useState(false);
-  if (dismissed) return null;
-  return (
-    <div className="flex items-center gap-3 px-6 py-2.5 bg-amber-500/10 border-b border-amber-500/20 text-sm">
-      <ShieldAlert className="h-4 w-4 text-amber-500 shrink-0" />
-      <span className="text-amber-700 dark:text-amber-400">
-        您的账号尚未设置密码或绑定通行密钥，登出后可能无法再次登录。
-        <Link
-          to="/dashboard/settings/security"
-          className="underline font-medium ml-1 hover:no-underline"
-        >
-          前往设置
-        </Link>
-      </span>
-      <button
-        onClick={() => setDismissed(true)}
-        className="ml-auto text-amber-500/60 hover:text-amber-500"
-      >
-        <X className="h-3.5 w-3.5" />
-      </button>
-    </div>
   );
 }
 
@@ -368,45 +327,47 @@ export function Layout() {
             </SidebarGroupContent>
           </SidebarGroup>
 
-          {/* 应用市场 */}
-          <SidebarGroup>
-            <SidebarGroupContent>
-              <SidebarMenu>
-                <SidebarMenuItem>
-                  <SidebarMenuButton
-                    asChild
-                    isActive={isActive("/dashboard/apps")}
-                    tooltip="应用市场"
-                  >
-                    <Link to="/dashboard/apps">
-                      <Puzzle />
-                      <span>应用市场</span>
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              </SidebarMenu>
-            </SidebarGroupContent>
-          </SidebarGroup>
-
-          {/* 开发者 */}
-          <SidebarGroup>
-            <SidebarGroupContent>
-              <SidebarMenu>
-                <SidebarMenuItem>
-                  <SidebarMenuButton
-                    asChild
-                    isActive={isActive("/dashboard/developer")}
-                    tooltip="开发者"
-                  >
-                    <Link to="/dashboard/developer/apps">
-                      <Code2 />
-                      <span>开发者</span>
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              </SidebarMenu>
-            </SidebarGroupContent>
-          </SidebarGroup>
+          {/* 应用市场 / 开发者 — administrator console only */}
+          {isAdmin && (
+            <SidebarGroup>
+              <SidebarGroupContent>
+                <SidebarMenu>
+                  <SidebarMenuItem>
+                    <SidebarMenuButton
+                      asChild
+                      isActive={isActive("/dashboard/apps")}
+                      tooltip="应用市场"
+                    >
+                      <Link to="/dashboard/apps">
+                        <Puzzle />
+                        <span>应用市场</span>
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                </SidebarMenu>
+              </SidebarGroupContent>
+            </SidebarGroup>
+          )}
+          {isAdmin && (
+            <SidebarGroup>
+              <SidebarGroupContent>
+                <SidebarMenu>
+                  <SidebarMenuItem>
+                    <SidebarMenuButton
+                      asChild
+                      isActive={isActive("/dashboard/developer")}
+                      tooltip="开发者"
+                    >
+                      <Link to="/dashboard/developer/apps">
+                        <Code2 />
+                        <span>开发者</span>
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                </SidebarMenu>
+              </SidebarGroupContent>
+            </SidebarGroup>
+          )}
 
           {/* 管理 — admin only */}
           {isAdmin && (
@@ -539,8 +500,6 @@ export function Layout() {
 
       <SidebarInset className="flex flex-col bg-background/50 rounded-tl-2xl overflow-hidden">
         <LayoutHeader />
-
-        {user && !user.has_password && !user.has_passkey && !user.has_oauth && <SecurityBanner />}
 
         <main className="flex-1 overflow-y-auto overflow-x-hidden [&:has([data-full-page])]:overflow-hidden">
           <div className="h-full mx-auto w-full max-w-[1400px] p-6 lg:p-8 animate-in fade-in slide-in-from-bottom-2 duration-500 [&:has([data-full-page])]:p-0 [&:has([data-full-page])]:max-w-none">

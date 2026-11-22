@@ -35,6 +35,14 @@ export function useBotChannels(botId: string) {
   });
 }
 
+export function useBotWeChatUser(botId: string) {
+  return useQuery({
+    queryKey: queryKeys.bots.wechatUser(botId),
+    queryFn: () => api.botWeChatUser(botId),
+    enabled: !!botId,
+  });
+}
+
 export function useBotContacts(botId: string) {
   return useQuery({
     queryKey: queryKeys.bots.contacts(botId),
