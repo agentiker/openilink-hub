@@ -205,71 +205,78 @@ func (s *Server) handleBindStatus(w http.ResponseWriter, r *http.Request) {
 			j, _ := json.Marshal(map[string]string{"status": "refreshed", "qr_url": result.QRURL})
 			sendEvent("status", string(j))
 		case "confirmed":
-			var creds struct {
-				BotID       string `json:"bot_id"`
-				ILinkUserID string `json:"ilink_user_id"`
-			}
-			json.Unmarshal(result.Credentials, &creds)
-
-			var bot *store.Bot
-
-			// 1. Match by provider_id (exact bot_id)
-			if creds.BotID != "" {
-				existing, _ := s.Store.FindBotByProviderID("ilink", creds.BotID)
-				if existing != nil {
-					if existing.UserID != entry.UserID {
-						sendEvent("error", `{"message":"this account is already bound by another user"}`)
-						return
-					}
-					s.BotManager.StopBot(existing.ID)
-					if err := s.Store.UpdateBotCredentials(existing.ID, creds.BotID, result.Credentials); err != nil {
-						slog.Error("rebind update failed", "err", err)
-						sendEvent("error", `{"message":"rebind failed"}`)
-						return
-					}
-					existing.Credentials = result.Credentials
-					existing.Status = "connected"
-					bot = existing
-				}
-			}
-
-			// 2. Match by ilink_user_id (same WeChat user, new bot_id)
-			if bot == nil && creds.ILinkUserID != "" {
-				sibling, _ := s.Store.FindBotByCredential("ilink_user_id", creds.ILinkUserID)
-				if sibling != nil && sibling.UserID == entry.UserID {
-					s.BotManager.StopBot(sibling.ID)
-					if err := s.Store.UpdateBotCredentials(sibling.ID, creds.BotID, result.Credentials); err != nil {
-						slog.Error("rebind update failed", "err", err)
-						sendEvent("error", `{"message":"rebind failed"}`)
-						return
-					}
-					sibling.Credentials = result.Credentials
-					sibling.ProviderID = creds.BotID
-					sibling.Status = "connected"
-					bot = sibling
-				}
-			}
-
-			isNew := bot == nil
-			if isNew {
-				var err error
-				bot, err = s.Store.CreateBot(entry.UserID, "", "ilink", creds.BotID, result.Credentials)
-				if err != nil {
-					slog.Error("save bot failed", "err", err)
-					sendEvent("error", `{"message":"save failed"}`)
-					return
-				}
-				// Auto-create default channel for new bots only
-				s.Store.CreateChannel(bot.ID, "默认", "", nil, nil)
-			}
-
-			s.BotManager.StartBot(context.Background(), bot)
-
-			j, _ := json.Marshal(map[string]any{"status": "connected", "bot_id": bot.ID, "is_new": isNew})
-			sendEvent("status", string(j))
+			s.completeBind(entry.UserID, result, sendEvent)
 			return
 		}
 	}
+}
+
+// completeBind handles the "confirmed" state of a bind flow started by an
+// already-logged-in user: rebind an existing bot or create a new one, then
+// start it. Shared by the WebSocket and HTTP-poll status endpoints.
+func (s *Server) completeBind(userID string, result *provider.BindPollResult, sendEvent func(string, string)) {
+	var creds struct {
+		BotID       string `json:"bot_id"`
+		ILinkUserID string `json:"ilink_user_id"`
+	}
+	json.Unmarshal(result.Credentials, &creds)
+
+	var bot *store.Bot
+
+	// 1. Match by provider_id (exact bot_id)
+	if creds.BotID != "" {
+		existing, _ := s.Store.FindBotByProviderID("ilink", creds.BotID)
+		if existing != nil {
+			if existing.UserID != userID {
+				sendEvent("error", `{"message":"this account is already bound by another user"}`)
+				return
+			}
+			s.BotManager.StopBot(existing.ID)
+			if err := s.Store.UpdateBotCredentials(existing.ID, creds.BotID, result.Credentials); err != nil {
+				slog.Error("rebind update failed", "err", err)
+				sendEvent("error", `{"message":"rebind failed"}`)
+				return
+			}
+			existing.Credentials = result.Credentials
+			existing.Status = "connected"
+			bot = existing
+		}
+	}
+
+	// 2. Match by ilink_user_id (same WeChat user, new bot_id)
+	if bot == nil && creds.ILinkUserID != "" {
+		sibling, _ := s.Store.FindBotByCredential("ilink_user_id", creds.ILinkUserID)
+		if sibling != nil && sibling.UserID == userID {
+			s.BotManager.StopBot(sibling.ID)
+			if err := s.Store.UpdateBotCredentials(sibling.ID, creds.BotID, result.Credentials); err != nil {
+				slog.Error("rebind update failed", "err", err)
+				sendEvent("error", `{"message":"rebind failed"}`)
+				return
+			}
+			sibling.Credentials = result.Credentials
+			sibling.ProviderID = creds.BotID
+			sibling.Status = "connected"
+			bot = sibling
+		}
+	}
+
+	isNew := bot == nil
+	if isNew {
+		var err error
+		bot, err = s.Store.CreateBot(userID, "", "ilink", creds.BotID, result.Credentials)
+		if err != nil {
+			slog.Error("save bot failed", "err", err)
+			sendEvent("error", `{"message":"save failed"}`)
+			return
+		}
+		// Auto-create default channel for new bots only
+		s.Store.CreateChannel(bot.ID, "默认", "", nil, nil)
+	}
+
+	s.BotManager.StartBot(context.Background(), bot)
+
+	j, _ := json.Marshal(map[string]any{"status": "connected", "bot_id": bot.ID, "is_new": isNew})
+	sendEvent("status", string(j))
 }
 
 func (s *Server) handleReconnect(w http.ResponseWriter, r *http.Request) {

@@ -1,0 +1,59 @@
+<view class="page">
+    <view class="demo-banner" wx:if="{{demo}}">演示模式：连不上本地 Hub，以下为示例数据</view>
+    <view class="intro">
+        <text class="intro-title">{{heading}}</text>
+        <text class="intro-desc">{{desc}}</text>
+    </view>
+
+    <view class="card qr-card">
+        <view class="qr-box" bindtap="previewQr">
+            <image wx:if="{{qrImage}}" class="qr-img {{phase === 'scanned' || phase === 'connected' ? 'qr-dim' : ''}}" src="{{qrImage}}" mode="aspectFit"></image>
+            <view wx:else class="qr-placeholder">
+                <view class="spinner" wx:if="{{phase === 'loading'}}"></view>
+                <text class="text-danger qr-err-icon" wx:if="{{phase === 'error'}}">!</text>
+            </view>
+
+            <view class="qr-overlay" wx:if="{{phase === 'scanned'}}">
+                <text class="overlay-icon">✓</text>
+                <text class="overlay-text">已扫码</text>
+            </view>
+            <view class="qr-overlay" wx:if="{{phase === 'connected'}}">
+                <text class="overlay-icon">✓</text>
+                <text class="overlay-text">成功</text>
+            </view>
+        </view>
+
+        <view class="status-row">
+            <view class="spinner spinner-sm" wx:if="{{phase === 'wait' || phase === 'scanned'}}"></view>
+            <text class="status-text {{phase === 'error' ? 'text-danger' : ''}} {{phase === 'connected' ? 'text-ok' : ''}}">{{phase === 'error' ? errorText : statusText}}</text>
+        </view>
+
+        <button wx:if="{{phase === 'error'}}" class="btn-primary refresh-btn" bindtap="start">刷新二维码</button>
+
+        <view class="qr-actions" wx:if="{{qrImage && phase !== 'connected' && phase !== 'error'}}">
+            <text class="qr-action" bindtap="previewQr">放大识别</text>
+            <text class="qr-action-sep">|</text>
+            <text class="qr-action" bindtap="saveQr">保存图片</text>
+            <text class="qr-action-sep">|</text>
+            <text class="qr-action" bindtap="copyLink">复制链接</text>
+            <text class="qr-action-sep">|</text>
+            <text class="qr-action" bindtap="start">换一张</text>
+        </view>
+    </view>
+
+    <view class="card tips">
+        <text class="tips-title">怎么扫？</text>
+        <view class="tip">
+            <text class="tip-no">1</text>
+            <text class="tip-text">在另一台设备（电脑或平板）上打开本页，用手机微信「扫一扫」。</text>
+        </view>
+        <view class="tip">
+            <text class="tip-no">2</text>
+            <text class="tip-text">只有这一台手机时：点「放大识别」，长按图片选择「识别图中的二维码」。</text>
+        </view>
+        <view class="tip">
+            <text class="tip-no">3</text>
+            <text class="tip-text">扫码后在手机上点击「确认」，本页会自动完成{{mode === 'login' ? '登录' : '绑定'}}。</text>
+        </view>
+    </view>
+</view>

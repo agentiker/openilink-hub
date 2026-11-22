@@ -17,6 +17,8 @@ require (
 	modernc.org/sqlite v1.47.0
 )
 
+require rsc.io/qr v0.2.0
+
 require (
 	github.com/agentiker/wxilink-sdk-go v0.8.0
 	github.com/dlclark/regexp2 v1.11.4 // indirect

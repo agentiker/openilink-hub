@@ -1,0 +1,97 @@
+<view class="page">
+    <view class="demo-banner" wx:if="{{demo}}">演示模式：连不上本地 Hub，以下为示例数据</view>
+    <view class="card state-box" wx:if="{{viewState === 'loading'}}">
+        <view class="spinner"></view>
+        <text class="state-title">正在加载</text>
+        <text class="state-desc">正在获取你的 ClawBot 信息…</text>
+    </view>
+
+    <view class="card state-box" wx:elif="{{viewState === 'error'}}">
+        <text class="state-icon text-danger">!</text>
+        <text class="state-title">加载失败</text>
+        <text class="state-desc">{{errorText}}</text>
+        <button class="btn-primary state-action" bindtap="load">重新加载</button>
+    </view>
+
+    <block wx:else>
+        <view class="profile card">
+            <view class="avatar">{{avatarChar}}</view>
+            <view class="profile-main">
+                <text class="profile-name">{{user.display_name || user.username}}</text>
+                <text class="profile-sub mono">@{{user.username}}</text>
+            </view>
+            <text class="link-danger" bindtap="logout">退出</text>
+        </view>
+
+        <view class="stats card">
+            <view class="stat">
+                <text class="stat-num">{{bots.length}}</text>
+                <text class="stat-label">ClawBot</text>
+            </view>
+            <view class="stat">
+                <text class="stat-num text-ok">{{onlineCount}}</text>
+                <text class="stat-label">在线</text>
+            </view>
+            <view class="stat">
+                <text class="stat-num">{{stats ? stats.total_messages : '-'}}</text>
+                <text class="stat-label">消息总数</text>
+            </view>
+            <view class="stat">
+                <text class="stat-num">{{stats ? stats.total_installations : '-'}}</text>
+                <text class="stat-label">已装 App</text>
+            </view>
+        </view>
+
+        <view class="section-head">
+            <text class="section-title">我的 ClawBot</text>
+            <text class="section-action" bindtap="bindNew">+ 绑定新的</text>
+        </view>
+
+        <view class="card state-box" wx:if="{{bots.length === 0}}">
+            <text class="state-icon">○</text>
+            <text class="state-title">还没有 ClawBot</text>
+            <text class="state-desc">用微信扫描二维码，把你的 ClawBot 绑定到这里。</text>
+            <button class="btn-primary state-action" bindtap="bindNew">扫码绑定</button>
+        </view>
+
+        <view
+            class="card bot-card"
+            wx:for="{{bots}}"
+            wx:key="id"
+            data-id="{{item.id}}"
+            bindtap="openBot"
+            hover-class="bot-card-hover"
+        >
+            <view class="bot-head">
+                <view class="bot-title">
+                    <text class="bot-name">{{item.name}}</text>
+                    <text class="bot-id mono">{{item.botIdShort}}</text>
+                </view>
+                <view class="badge badge-{{item.statusCls}}">
+                    <view class="badge-dot"></view>
+                    <text>{{item.statusLabel}}</text>
+                </view>
+            </view>
+
+            <view class="bot-meta">
+                <text>消息 {{item.msgCount}}</text>
+                <text class="dot-sep">·</text>
+                <text>最近 {{item.lastMsg}}</text>
+                <text class="dot-sep" wx:if="{{item.aiEnabled}}">·</text>
+                <text class="text-ok" wx:if="{{item.aiEnabled}}">AI 回复已开</text>
+            </view>
+
+            <view class="bot-window">
+                <view class="bot-window-row">
+                    <text class="muted">24 小时窗口</text>
+                    <text class="text-{{item.winLevel}}">{{item.winText}}</text>
+                </view>
+                <view class="window-bar">
+                    <view class="window-fill window-fill-{{item.winLevel}}" style="width: {{item.winPercent}}%;"></view>
+                </view>
+            </view>
+
+            <text class="bot-warn" wx:if="{{!item.canSend && item.sendReason}}">{{item.sendReason}}</text>
+        </view>
+    </block>
+</view>

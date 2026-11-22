@@ -37,3 +37,10 @@ runner.yaml
 dist/
 .worktrees/
 .claude/worktrees/
+
+# local tool state
+oih.log
+.workbuddy/
+.wbapp_*.genie
+miniapp/.workbuddy/
+miniapp/project.private.config.json

@@ -24,10 +24,14 @@ func (s *Server) handleScanLoginStart(w http.ResponseWriter, r *http.Request) {
 		jsonError(w, err.Error(), http.StatusBadGateway)
 		return
 	}
+	pollToken := registerScanPoll(sessionID, qrURL)
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]string{
 		"session_id": sessionID,
 		"qr_url":     qrURL,
+		// poll_token authorises GET /api/auth/scan/poll/{session_id} for
+		// clients that cannot keep a WebSocket open (e.g. mini programs).
+		"poll_token": pollToken,
 	})
 }
 

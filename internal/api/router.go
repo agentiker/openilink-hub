@@ -72,6 +72,8 @@ func (s *Server) Handler() http.Handler {
 	// --- iLink scan login: scan QR to register + login + bind bot ---
 	mux.HandleFunc("POST /api/auth/scan/start", s.handleScanLoginStart)
 	mux.HandleFunc("GET /api/auth/scan/status/{sessionID}", s.handleScanLoginStatus)
+	mux.HandleFunc("GET /api/auth/scan/poll/{sessionID}", s.handleScanLoginPoll)
+	mux.HandleFunc("GET /api/qr.png", s.handleQRImage)
 
 	// --- Public info ---
 	mux.HandleFunc("GET /api/info", s.handleInfo)
@@ -144,6 +146,7 @@ func (s *Server) Handler() http.Handler {
 	protected.HandleFunc("GET /api/bots", s.handleListBots)
 	protected.HandleFunc("POST /api/bots/bind/start", s.handleBindStart)
 	protected.HandleFunc("GET /api/bots/bind/status/{sessionID}", s.handleBindStatus)
+	protected.HandleFunc("GET /api/bots/bind/poll/{sessionID}", s.handleBindPoll)
 	protected.HandleFunc("POST /api/bots/{id}/reconnect", s.handleReconnect)
 	protected.HandleFunc("DELETE /api/bots/{id}", s.handleDeleteBot)
 

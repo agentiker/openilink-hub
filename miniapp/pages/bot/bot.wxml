@@ -1,0 +1,165 @@
+<view class="page">
+    <view class="demo-banner" wx:if="{{demo}}">演示模式：连不上本地 Hub，以下为示例数据</view>
+    <view class="card state-box" wx:if="{{viewState === 'loading'}}">
+        <view class="spinner"></view>
+        <text class="state-title">正在加载</text>
+    </view>
+
+    <view class="card state-box" wx:elif="{{viewState === 'error'}}">
+        <text class="state-icon text-danger">!</text>
+        <text class="state-title">加载失败</text>
+        <text class="state-desc">{{errorText}}</text>
+        <button class="btn-primary state-action" bindtap="load">重新加载</button>
+    </view>
+
+    <block wx:else>
+        <!-- 概览 -->
+        <view class="card hero">
+            <view class="hero-head">
+                <text class="hero-name">{{info.name}}</text>
+                <view class="badge badge-{{info.statusCls}}">
+                    <view class="badge-dot"></view>
+                    <text>{{info.statusLabel}}</text>
+                </view>
+            </view>
+
+            <view class="hero-window">
+                <view class="hero-window-row">
+                    <text class="muted">24 小时会话窗口</text>
+                    <text class="text-{{win.level}} hero-window-text">{{win.text}}</text>
+                </view>
+                <view class="window-bar">
+                    <view class="window-fill window-fill-{{win.level}}" style="width: {{win.percent}}%;"></view>
+                </view>
+                <text class="hero-hint">在微信里给 ClawBot 发任意一条消息即可刷新窗口。</text>
+            </view>
+
+            <text class="warn-box" wx:if="{{!info.canSend && info.sendReason}}">{{info.sendReason}}</text>
+
+            <view class="hero-actions" wx:if="{{info.showReconnect || info.expired}}">
+                <button wx:if="{{info.showReconnect}}" class="btn-ghost" size="mini" loading="{{reconnecting}}" disabled="{{reconnecting}}" bindtap="reconnect">重新连接</button>
+                <button wx:if="{{info.expired}}" class="btn-primary" size="mini" bindtap="rebind">重新扫码绑定</button>
+            </view>
+        </view>
+
+        <!-- 基本信息 -->
+        <view class="card">
+            <view class="card-title">基本信息</view>
+            <view class="kv kv-first">
+                <text class="kv-key">iLink Bot ID</text>
+                <text class="kv-val mono" data-value="{{info.botId}}" bindtap="copy">{{info.botId}}</text>
+            </view>
+            <view class="kv">
+                <text class="kv-key">iLink 用户 ID</text>
+                <text class="kv-val mono" data-value="{{info.ilinkUserId}}" bindtap="copy">{{info.ilinkUserId}}</text>
+            </view>
+            <view class="kv">
+                <text class="kv-key">Hub ID</text>
+                <text class="kv-val mono" data-value="{{info.hubId}}" bindtap="copy">{{info.hubId}}</text>
+            </view>
+            <view class="kv">
+                <text class="kv-key">消息数</text>
+                <text class="kv-val">{{info.msgCount}}</text>
+            </view>
+            <view class="kv">
+                <text class="kv-key">最近消息</text>
+                <text class="kv-val">{{info.lastMsgAt}}</text>
+            </view>
+            <view class="kv">
+                <text class="kv-key">AI 自动回复</text>
+                <text class="kv-val {{info.aiEnabled ? 'text-ok' : 'text-muted'}}">{{info.aiEnabled ? '已开启 · ' + info.aiModel : '未开启'}}</text>
+            </view>
+            <view class="kv">
+                <text class="kv-key">到期提醒</text>
+                <text class="kv-val">{{info.reminder}}</text>
+            </view>
+            <view class="kv">
+                <text class="kv-key">绑定时间</text>
+                <text class="kv-val">{{info.createdAt}}</text>
+            </view>
+            <text class="copy-hint">点击 ID 可复制</text>
+        </view>
+
+        <!-- 发送额度 -->
+        <view class="card" wx:if="{{quota.enabled}}">
+            <view class="card-title">
+                <text>发送额度</text>
+                <text class="card-title-extra">每收到 1 条消息可回复 {{quota.limit}} 条</text>
+            </view>
+            <text class="muted small" wx:if="{{quota.list.length === 0}}">暂无记录</text>
+            <view class="quota-row" wx:for="{{quota.list}}" wx:key="recipient">
+                <view class="quota-head">
+                    <text class="mono small">{{item.recipient}}</text>
+                    <text class="small text-{{item.level}}">剩余 {{item.remaining}}/{{item.limit}}<text wx:if="{{item.pending > 0}}" class="text-warn"> · 排队 {{item.pending}}</text></text>
+                </view>
+                <view class="window-bar">
+                    <view class="window-fill window-fill-{{item.level}}" style="width: {{item.percent}}%;"></view>
+                </view>
+            </view>
+        </view>
+
+        <!-- Tabs -->
+        <view class="tabs">
+            <view class="tab {{tab === 'messages' ? 'tab-active' : ''}}" data-tab="messages" bindtap="switchTab">消息</view>
+            <view class="tab {{tab === 'contacts' ? 'tab-active' : ''}}" data-tab="contacts" bindtap="switchTab">联系人 {{contacts.length}}</view>
+            <view class="tab {{tab === 'apps' ? 'tab-active' : ''}}" data-tab="apps" bindtap="switchTab">App {{apps.length}}</view>
+        </view>
+
+        <!-- 消息 -->
+        <view class="card list-card" wx:if="{{tab === 'messages'}}">
+            <view class="state-box small-state" wx:if="{{messages.length === 0}}">
+                <text class="state-icon">○</text>
+                <text class="state-desc">还没有消息，在微信里给 ClawBot 发一条试试。</text>
+            </view>
+            <view class="msg" wx:for="{{messages}}" wx:key="id">
+                <view class="msg-head">
+                    <text class="msg-dir {{item.inbound ? 'msg-in' : 'msg-out'}}">{{item.inbound ? '收' : '发'}}</text>
+                    <text class="msg-peer mono">{{item.peer}}</text>
+                    <text class="msg-time">{{item.time}}</text>
+                </view>
+                <text class="msg-text" user-select="{{true}}">{{item.text}}</text>
+            </view>
+            <view class="load-more" wx:if="{{messages.length > 0}}">
+                <text wx:if="{{loadingMore}}" class="muted small">加载中…</text>
+                <text wx:elif="{{hasMore}}" class="link small" bindtap="loadMore">加载更多</text>
+                <text wx:else class="muted small">没有更多了</text>
+            </view>
+        </view>
+
+        <!-- 联系人 -->
+        <view class="card list-card" wx:if="{{tab === 'contacts'}}">
+            <view class="state-box small-state" wx:if="{{contacts.length === 0}}">
+                <text class="state-icon">○</text>
+                <text class="state-desc">暂无联系人</text>
+            </view>
+            <view class="row" wx:for="{{contacts}}" wx:key="id" data-value="{{item.id}}" bindtap="copy">
+                <view class="row-avatar">{{index + 1}}</view>
+                <view class="row-main">
+                    <text class="mono row-title">{{item.name}}</text>
+                    <text class="row-sub">最近 {{item.last}}</text>
+                </view>
+                <text class="row-extra">{{item.count}} 条</text>
+            </view>
+        </view>
+
+        <!-- App -->
+        <view class="card list-card" wx:if="{{tab === 'apps'}}">
+            <view class="state-box small-state" wx:if="{{apps.length === 0}}">
+                <text class="state-icon">○</text>
+                <text class="state-desc">还没有安装 App，可在 Hub 网页控制台的应用市场中安装。</text>
+            </view>
+            <view class="row" wx:for="{{apps}}" wx:key="id">
+                <image wx:if="{{item.iconUrl}}" class="row-icon" src="{{item.iconUrl}}" mode="aspectFill"></image>
+                <view wx:elif="{{item.icon}}" class="row-avatar row-emoji">{{item.icon}}</view>
+                <view wx:else class="row-avatar">{{item.initial}}</view>
+                <view class="row-main">
+                    <text class="row-title">{{item.name}}</text>
+                    <text class="row-sub mono" wx:if="{{item.handle}}">@{{item.handle}}</text>
+                </view>
+                <view class="badge {{item.enabled ? 'badge-ok' : 'badge-muted'}}">
+                    <text>{{item.enabled ? '已启用' : '已停用'}}</text>
+                </view>
+            </view>
+        </view>
+    </block>
+</view>
