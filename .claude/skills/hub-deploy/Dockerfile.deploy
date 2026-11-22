@@ -1,0 +1,27 @@
+# Deploy image: same result as the repository Dockerfile, minus the Node
+# stage. The web UI (internal/web/dist) is built on the deploying machine by
+# scripts/deploy.sh, because node images are not pullable from some hosts.
+# Go modules come through goproxy.cn and are cached across builds; Alpine
+# packages come from a mirror (dl-cdn is very slow from mainland hosts).
+ARG ALPINE_MIRROR=mirrors.aliyun.com
+FROM golang:1.26-alpine AS backend
+ARG ALPINE_MIRROR
+RUN sed -i "s#dl-cdn.alpinelinux.org#${ALPINE_MIRROR}#" /etc/apk/repositories && apk add --no-cache gcc musl-dev
+WORKDIR /app
+ENV GOPROXY=https://goproxy.cn,direct GOFLAGS=-mod=mod
+COPY go.mod go.sum ./
+RUN --mount=type=cache,target=/go/pkg/mod go mod download
+COPY . .
+ARG HUB_VERSION=dev
+RUN --mount=type=cache,target=/go/pkg/mod --mount=type=cache,target=/root/.cache/go-build \
+    test -f internal/web/dist/index.html && \
+    CGO_ENABLED=1 go build -trimpath -ldflags "-s -w -X main.version=${HUB_VERSION}" -o /oih .
+
+FROM alpine:3.21
+ARG ALPINE_MIRROR
+RUN sed -i "s#dl-cdn.alpinelinux.org#${ALPINE_MIRROR}#" /etc/apk/repositories && apk add --no-cache ca-certificates tzdata
+ENV TZ=Asia/Shanghai
+COPY --from=backend /oih /usr/local/bin/oih
+EXPOSE 9800
+ENTRYPOINT ["oih"]
+CMD ["-listen", "0.0.0.0:9800"]

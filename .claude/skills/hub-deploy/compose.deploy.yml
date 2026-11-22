@@ -1,0 +1,28 @@
+# Production compose for one host: a single Hub container, SQLite + local
+# media in /var/lib/openilink-hub (bind-mounted from $HUB_DATA_DIR), listening
+# on 127.0.0.1 only. The repository docker-compose.yml (postgres + minio,
+# port on all interfaces) is for local development and is NOT used here.
+# Rendered/used by scripts/deploy.sh; image tag = deployed commit.
+services:
+  hub:
+    image: openilink-hub:${HUB_REVISION:?}
+    build:
+      context: ${HUB_SRC:?}
+      dockerfile: .claude/skills/hub-deploy/Dockerfile.deploy
+      args:
+        HUB_VERSION: ${HUB_VERSION:-dev}
+    restart: unless-stopped
+    command: ["-listen", "0.0.0.0:9800"]
+    ports:
+      - "127.0.0.1:${HUB_PORT:?}:9800"
+    env_file:
+      - .env
+    environment:
+      STORAGE_PATH: /var/lib/openilink-hub/media
+    volumes:
+      - ${HUB_DATA_DIR:?}:/var/lib/openilink-hub
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
