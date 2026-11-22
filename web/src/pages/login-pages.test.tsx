@@ -80,6 +80,16 @@ describe("login entry points", () => {
     expect(container.textContent).toContain("在电脑上打开");
   });
 
+  it("login pages release a stale overlay lock on <body> (logout from an open menu)", async () => {
+    document.body.style.pointerEvents = "none";
+    document.body.style.overflow = "hidden";
+    document.body.setAttribute("data-scroll-locked", "1");
+    await act(async () => root.render(<LoginPage />));
+    expect(document.body.style.pointerEvents).toBe("");
+    expect(document.body.style.overflow).toBe("");
+    expect(document.body.hasAttribute("data-scroll-locked")).toBe(false);
+  });
+
   it("/admin/login has password + passkey and no QR", async () => {
     (window as any).PublicKeyCredential = function () {};
     await act(async () => root.render(<AdminLoginPage />));

@@ -509,7 +509,12 @@ export function Layout() {
                     onClick={async () => {
                       const wasAdmin = isAdmin;
                       await useAuthStore.getState().logout();
-                      navigate(wasAdmin ? "/admin/login" : "/login");
+                      // Full page load, not navigate(): this menu (and on mobile
+                      // the sidebar sheet) is still open, and unmounting Radix
+                      // overlays mid-open leaves pointer-events:none on <body>,
+                      // making the login page unclickable. A reload also drops
+                      // the previous account's cached data.
+                      window.location.replace(wasAdmin ? "/admin/login" : "/login");
                     }}
                     className="cursor-pointer font-medium text-destructive focus:bg-destructive/10 focus:text-destructive"
                   >

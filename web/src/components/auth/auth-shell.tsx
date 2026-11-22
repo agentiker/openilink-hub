@@ -1,8 +1,21 @@
-import type { ReactNode } from "react";
+import { useEffect, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { HexagonBackground } from "@/components/ui/hexagon-background";
 import { Card, CardContent, CardFooter } from "@/components/ui/card";
 import { HiLogoMark } from "@/components/brand/hi-logo";
+
+/**
+ * Radix modal overlays (dialog/sheet/dropdown) lock the page with
+ * pointer-events:none and overflow:hidden on <body>. If one is unmounted while
+ * open (e.g. a client-side redirect to login), the lock can survive and make
+ * every control on the login page dead until a reload. Clear it defensively.
+ */
+export function releaseStaleBodyLock() {
+  const s = document.body.style;
+  if (s.pointerEvents === "none") s.pointerEvents = "";
+  if (s.overflow === "hidden") s.overflow = "";
+  document.body.removeAttribute("data-scroll-locked");
+}
 
 /** Shared frame for the login pages: background, Hi微连 mark, card, footer. */
 export function AuthShell({
@@ -14,6 +27,10 @@ export function AuthShell({
   children: ReactNode;
   below?: ReactNode;
 }) {
+  useEffect(() => {
+    releaseStaleBodyLock();
+  }, []);
+
   return (
     <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-background px-4 py-12">
       <HexagonBackground className="opacity-20" hexagonSize={60} hexagonMargin={4} />
