@@ -354,7 +354,10 @@ func (s *Server) handleGetWeChatMPConfig(w http.ResponseWriter, r *http.Request)
 	})
 }
 
-// PUT /api/admin/config/wechat-mp {app_id, app_secret?, scope?, verify_file?}
+// PUT /api/admin/config/wechat-mp {app_id?, app_secret?, scope?, verify_file?}
+//
+// app_id may be omitted to only set the domain verification file: the
+// 网页授权域名 is verified in the 公众平台 before credentials are entered.
 func (s *Server) handleSetWeChatMPConfig(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		AppID      string `json:"app_id"`
@@ -362,8 +365,13 @@ func (s *Server) handleSetWeChatMPConfig(w http.ResponseWriter, r *http.Request)
 		Scope      string `json:"scope"`
 		VerifyFile string `json:"verify_file"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || strings.TrimSpace(req.AppID) == "" {
-		jsonError(w, "app_id required", http.StatusBadRequest)
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		jsonError(w, "invalid request", http.StatusBadRequest)
+		return
+	}
+	req.AppID = strings.TrimSpace(req.AppID)
+	if req.AppID == "" && req.VerifyFile == "" {
+		jsonError(w, "app_id or verify_file required", http.StatusBadRequest)
 		return
 	}
 	if req.Scope != "" && req.Scope != wechatmp.ScopeBase && req.Scope != wechatmp.ScopeUserInfo {
@@ -375,7 +383,9 @@ func (s *Server) handleSetWeChatMPConfig(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	set := func(k, v string) { s.Store.SetConfig(wxConfigPrefix+k, v) }
-	set("app_id", strings.TrimSpace(req.AppID))
+	if req.AppID != "" {
+		set("app_id", req.AppID)
+	}
 	// Keep the stored secret when the client echoes back the masked value or omits it.
 	if req.AppSecret != "" && !strings.Contains(req.AppSecret, "*") {
 		set("app_secret", strings.TrimSpace(req.AppSecret))

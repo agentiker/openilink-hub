@@ -3302,6 +3302,20 @@ func TestWeChatIdentityBinding(t *testing.T) {
 	code, _ := env.postCode("/api/bots/"+botObj.ID+"/wechat/bind-link", map[string]any{})
 	assertCode(t, "bind-link unconfigured", code, 412)
 
+	// Domain verification file can be set before the credentials.
+	if code, r := env.put("/api/admin/config/wechat-mp", map[string]string{"verify_file": "MP_verify_Pre123.txt"}); code != 200 || r["enabled"] != false {
+		t.Fatalf("verify-only config: %d %v", code, r)
+	}
+	pre := httpGet(t, env.srv.URL+"/MP_verify_Pre123.txt")
+	preBody, _ := io.ReadAll(pre.Body)
+	pre.Body.Close()
+	if pre.StatusCode != 200 || string(preBody) != "Pre123" {
+		t.Errorf("verify-only file: %d %q", pre.StatusCode, preBody)
+	}
+	if code, _ := env.put("/api/admin/config/wechat-mp", map[string]string{}); code != 400 {
+		t.Errorf("empty config: %d, want 400", code)
+	}
+
 	// Admin configures the 服务号.
 	cfgCode, cfgResp := env.put("/api/admin/config/wechat-mp", map[string]string{
 		"app_id": "wxtestapp", "app_secret": "wxsecret", "verify_file": "MP_verify_AbC123.txt",

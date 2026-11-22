@@ -116,7 +116,7 @@ export function WeChatMPConfigCard() {
           </p>
         ) : null}
         <div className="flex justify-end">
-          <Button onClick={save} disabled={saving || !form.app_id}>
+          <Button onClick={save} disabled={saving || (!form.app_id && !form.verify_file)}>
             保存
           </Button>
         </div>
