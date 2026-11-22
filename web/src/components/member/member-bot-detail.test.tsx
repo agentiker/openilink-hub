@@ -33,7 +33,7 @@ vi.mock("@/hooks/use-bots", () => ({
     },
   }),
   useBotWeChatUser: () => ({
-    data: { ilink_user_id: "o9cq807yn@im.wechat", wechat: { nickname: "方瑾曜", avatar_url: "" } },
+    data: { ilink_user_id: "ultraman01@im.wechat", wechat: { nickname: "奥特曼", avatar_url: "" } },
   }),
 }));
 
@@ -77,9 +77,9 @@ describe("MemberBotDetail", () => {
       expect(container.querySelectorAll('[data-testid="history-message"]')).toHaveLength(2),
     );
     expect(container.querySelector('[data-testid="bot-wechat-user"]')!.textContent).toContain(
-      "方瑾曜",
+      "奥特曼",
     );
-    expect(container.textContent).toContain("o9cq807yn@im.wechat");
+    expect(container.textContent).toContain("ultraman01@im.wechat");
     expect(container.textContent).toContain("你好");
     expect(container.textContent).toContain("加载更早的消息");
     // Read-only: no composer, no admin tools.

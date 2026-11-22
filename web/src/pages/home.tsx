@@ -207,8 +207,8 @@ function ConsolePreview() {
                   <UserRound className="size-4 text-muted-foreground" aria-hidden />
                 </span>
                 <div className="min-w-0">
-                  <p className="text-sm font-medium">方瑾曜</p>
-                  <p className="truncate text-[11px] text-muted-foreground">o9cq807yn@im.wechat</p>
+                  <p className="text-sm font-medium">奥特曼</p>
+                  <p className="truncate text-[11px] text-muted-foreground">ultraman01@im.wechat</p>
                 </div>
               </div>
               <dl className="mt-4 divide-y divide-border border-t border-border text-sm">

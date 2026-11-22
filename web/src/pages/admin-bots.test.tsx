@@ -20,7 +20,7 @@ const bot = (over: any = {}) => ({
   msg_count: 5,
   created_at: 1795337822,
   owner: { id: "u1", username: "ilink_53c3508b", display_name: "", role: "member" },
-  ilink_user_id: "o9cq807yn@im.wechat",
+  ilink_user_id: "ultraman01@im.wechat",
   contact_count: 1,
   ...over,
 });
@@ -64,7 +64,7 @@ describe("AdminBotsPage", () => {
     expect(container.textContent).toContain("2 个，在线 1 个");
     expect(rows[0].textContent).toContain("ilink_53c3508b");
     expect(rows[0].textContent).toContain("未绑定身份");
-    expect(rows[0].textContent).toContain("o9cq807yn@im.wechat");
+    expect(rows[0].textContent).toContain("ultraman01@im.wechat");
     expect(rows[1].textContent).toContain("张三");
     expect(rows[1].textContent).toContain("superadmin");
     expect(rows[1].textContent).toContain("已过期");
