@@ -23,6 +23,8 @@ REF="${DEPLOY_REF:-HEAD}"
 DIR="${DEPLOY_DIR:-/opt/openilink-hub}"
 PORT="${DEPLOY_PORT:-9800}"
 KEEP="${DEPLOY_KEEP_RELEASES:-5}"
+# "admin" is a reserved username in Hub (store.reservedUsernames).
+ADMIN_USER="${DEPLOY_ADMIN_USER:-hubadmin}"
 ORIGIN=""
 SKIP_TESTS=0
 DRY_RUN=0
@@ -115,10 +117,10 @@ COPYFILE_DISABLE=1 tar -C "$WORK" --exclude='._*' --exclude=./web/node_modules -
 scp -q "$SKILL/compose.deploy.yml" "$HOST:${DIR}/compose.yml"
 
 echo "==> remote build, start and health check"
-ssh "$HOST" "bash -s" -- "$DIR" "$SHA" "$PORT" "$KEEP" "$ORIGIN" <<'REMOTE'
+ssh "$HOST" "bash -s" -- "$DIR" "$SHA" "$PORT" "$KEEP" "$ADMIN_USER" "$ORIGIN" <<'REMOTE'
 set -euo pipefail
-# ssh joins arguments with spaces, so an empty ORIGIN arrives as no $5.
-DIR="$1"; SHA="$2"; PORT="$3"; KEEP="$4"; ORIGIN="${5:-}"
+# ssh joins arguments with spaces, so an empty ORIGIN (last) arrives as no $6.
+DIR="$1"; SHA="$2"; PORT="$3"; KEEP="$4"; ADMIN_USER="$5"; ORIGIN="${6:-}"
 SHORT="${SHA:0:12}"
 PROJECT=openilink-hub
 DATA="$DIR/data"
@@ -141,11 +143,10 @@ if [ -n "$ORIGIN" ]; then
 fi
 grep -q '^RP_ORIGIN=' site.env || { setkv RP_ORIGIN "http://127.0.0.1:${PORT}"; setkv RP_ID "127.0.0.1"; }
 
-# First deploy = never deployed successfully here (no REVISION). A database
-# left by a failed first start does not count; the admin step below verifies
-# it really obtained the superadmin role.
+# Claim the superadmin until it has succeeded once (marker in $SECRETS); a
+# failed or partial first deploy is retried by the next deploy.
 FIRST=0
-[ -s REVISION ] || FIRST=1
+[ -f "$SECRETS/admin-claimed" ] || FIRST=1
 
 PREVIOUS="$(cat REVISION 2>/dev/null || true)"
 write_env() {
@@ -199,7 +200,7 @@ if [ "$FIRST" -eq 1 ]; then
   [ -s "$SECRETS/admin-password" ] || (umask 077; openssl rand -base64 18 | tr -d '\n/+=' > "$SECRETS/admin-password")
   PW="$(cat "$SECRETS/admin-password")"
   JAR="$(mktemp)"
-  body=$(printf '{"username":"admin","password":"%s"}' "$PW")
+  body=$(printf '{"username":"%s","password":"%s"}' "$ADMIN_USER" "$PW")
   code=$(curl -s -o /dev/null -w '%{http_code}' -c "$JAR" -H 'Content-Type: application/json' -d "$body" "http://127.0.0.1:${PORT}/api/auth/register")
   role=""
   if [ "$code" = 200 ] || [ "$code" = 201 ]; then
@@ -207,7 +208,8 @@ if [ "$FIRST" -eq 1 ]; then
   fi
   if [ "$role" = superadmin ]; then
     curl -fsS -o /dev/null -b "$JAR" -X PUT -H 'Content-Type: application/json' -d '{"enabled":"false"}' "http://127.0.0.1:${PORT}/api/admin/config/registration" \
-      && log "first administrator: admin (password in $SECRETS/admin-password); public registration disabled" \
+      && { echo "$ADMIN_USER" > "$SECRETS/admin-claimed"; chmod 600 "$SECRETS/admin-claimed"; \
+           log "first administrator: $ADMIN_USER (password in $SECRETS/admin-password); public registration disabled"; } \
       || log "WARNING: admin created but closing registration failed — close it in 管理后台 before publishing"
   else
     log "WARNING: could not claim superadmin (register HTTP ${code}, role '${role}'); users already exist? check before publishing"

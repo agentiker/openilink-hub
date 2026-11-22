@@ -37,13 +37,14 @@ description: 把 OpeniLink Hub 部署到远程 Docker 主机（默认 xdimspace-
 | `/opt/openilink-hub/compose.yml` | 来自 `compose.deploy.yml`：单容器、端口只绑 `127.0.0.1`、镜像按提交号打标签 |
 | `/opt/openilink-hub/site.env`（600） | 主机级配置：`SECRET`（首次自动生成，**改了所有人会被登出、已加密的 token 失效**）、`RP_ORIGIN`、`RP_ID`，以及按需添加的 `WECHAT_MP_APP_ID` 等。每次部署追加进 `.env`，部署只改它的 `RP_*`（传 `--origin` 时） |
 | `/opt/openilink-hub/.env`（600） | 每次部署生成：版本号、端口、数据目录 + `site.env` |
-| `/root/.openilink-hub/admin-password`（600） | 首个管理员 `admin` 的密码 |
+| `/root/.openilink-hub/admin-password`（600） | 首个管理员 `hubadmin` 的密码 |
+| `/root/.openilink-hub/admin-claimed` | 已成功创建管理员并关闭注册的标记（内容是用户名） |
 
 compose 项目名固定为 `openilink-hub`，容器名 `openilink-hub-hub-1`。仓库自带的 `docker-compose.yml`（Postgres + MinIO、端口开在所有网卡）是本地开发用的，**线上不用**。
 
 ## 首次部署与管理员
 
-Hub 的规则是**第一个注册的用户自动成为超级管理员，且公开注册默认开启**——站点先上公网再注册，谁先打开谁就是管理员。所以首次部署时（主机上还没有 `REVISION`，即从未成功部署过），脚本在服务器上从 `127.0.0.1` 注册 `admin`（随机密码，只存在服务器上），用 `/api/me` 确认拿到的是 `superadmin` 后**立即关闭公开注册**，之后才去配 nginx。没拿到超级管理员时只记警告，不要发布站点，先查原因。
+Hub 的规则是**第一个注册的用户自动成为超级管理员，且公开注册默认开启**——站点先上公网再注册，谁先打开谁就是管理员。所以首次部署时（主机上还没有 `admin-claimed` 标记），脚本在服务器上从 `127.0.0.1` 注册 `hubadmin`（`admin` 是 Hub 的保留用户名；可用 `DEPLOY_ADMIN_USER` 改；随机密码，只存在服务器上），用 `/api/me` 确认拿到的是 `superadmin` 后**立即关闭公开注册**，并写标记 `/root/.openilink-hub/admin-claimed`，之后才去配 nginx。没拿到超级管理员时只记警告、不写标记，下次部署会再试；此时不要发布站点，先查原因。
 
 密码**不经过本机**，需要时让用户自己看：
 
